@@ -70,53 +70,6 @@ HealthVault is designed with a **zero-trust, local-first** architecture. Here's 
 
 ---
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Browser (PWA)                        │
-│                                                             │
-│  ┌──────────┐   ┌──────────────┐   ┌──────────────────┐    │
-│  │  Pages   │──▶│    Hooks     │──▶│  Context          │    │
-│  │ (React)  │   │ useAIProvider│   │  (AppContext)     │    │
-│  │          │   │ useProfile   │   │  Settings/Profile │    │
-│  └──────────┘   └──────┬───────┘   └────────┬─────────┘    │
-│                        │                     │              │
-│                        ▼                     ▼              │
-│  ┌─────────────────────────────┐   ┌──────────────────┐    │
-│  │     AI Adapter Layer        │   │   Dexie (IDB)    │    │
-│  │  ┌───────┐ ┌───────┐       │   │  HealthProfile   │    │
-│  │  │OpenAI │ │Gemini │  ...  │   │  InteractionLog  │    │
-│  │  └───┬───┘ └───┬───┘       │   │  FoodScanHistory │    │
-│  │      │         │            │   │  AppSettings     │    │
-│  └──────┼─────────┼────────────┘   └──────────────────┘    │
-│         │         │                         ▲              │
-│         ▼         ▼                         │              │
-│  ┌─────────────────────┐          ┌─────────┴────────┐    │
-│  │  Prompt Templates   │          │  Crypto Service   │    │
-│  │  system / food /    │          │  AES-256-GCM      │    │
-│  │  health / image     │          │  PBKDF2 600K      │    │
-│  └─────────────────────┘          └──────────────────┘    │
-│                                                             │
-└──────────────────────────────────┬──────────────────────────┘
-                                   │ HTTPS (per-request only)
-                                   ▼
-                          ┌──────────────────┐
-                          │  AI Provider API │
-                          │  (OpenAI / Gemini│
-                          │  / Anthropic /   │
-                          │  Azure / Proxy)  │
-                          └──────────────────┘
-```
-
-**Key design choices:**
-
-- **Adapter pattern** — Each AI provider is a single file implementing the `AIProvider` interface. Providers self-register on import. The UI renders config forms dynamically from each adapter's `configSchema`.
-- **Context assembly** — Before each AI call, the `ContextAssembler` pulls your profile and recent interaction history from IndexedDB and builds a provider-agnostic `HealthContext` object. No provider ever touches the database directly.
-- **Prompt transparency** — All prompts are plain-text templates in `src/prompts/`. They receive a `HealthContext` and produce a string. Easy to audit, test, and modify.
-
----
-
 ## Getting Started
 
 ### Prerequisites
