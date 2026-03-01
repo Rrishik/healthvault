@@ -21,10 +21,16 @@ const PROXY_URL =
 
 async function chatCompletion(
   messages: { role: string; content: unknown }[],
+  config?: Record<string, string>,
 ): Promise<string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (config?.accessCode) {
+    headers['x-access-code'] = config.accessCode;
+  }
+
   const res = await fetch(PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ messages }),
   });
 
@@ -44,29 +50,38 @@ const communityProvider: AIProvider = {
     healthQuery: true,
     imageAnalysis: true,
   },
-  configSchema: [], // No config needed!
+  configSchema: [
+    {
+      key: 'accessCode',
+      label: 'Access Code',
+      type: 'password',
+      required: false,
+      placeholder: 'Enter invite code (if you have one)',
+    },
+  ],
 
-  async validateConfig() {
+  async validateConfig(config?: Record<string, string>) {
     try {
-      await chatCompletion([{ role: 'user', content: 'Hi' }]);
+      await chatCompletion([{ role: 'user', content: 'Hi' }], config);
       return true;
     } catch {
       return false;
     }
   },
 
-  async analyzeFood(request: FoodAnalysisRequest) {
+  async analyzeFood(request: FoodAnalysisRequest, config?: Record<string, string>) {
     const prompt = buildFoodAnalysisPrompt(request);
     const raw = await chatCompletion(
       [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: prompt },
       ],
+      config,
     );
     return safeParseJSON<FoodVerdict>(raw);
   },
 
-  async answerHealthQuery(request: HealthQueryRequest) {
+  async answerHealthQuery(request: HealthQueryRequest, config?: Record<string, string>) {
     const prompt = buildHealthQueryPrompt(request);
     const messages: { role: string; content: unknown }[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -76,11 +91,11 @@ const communityProvider: AIProvider = {
       })),
       { role: 'user', content: prompt },
     ];
-    const raw = await chatCompletion(messages);
+    const raw = await chatCompletion(messages, config);
     return safeParseJSON<HealthQueryResponse>(raw);
   },
 
-  async analyzeImage(request: ImageAnalysisRequest) {
+  async analyzeImage(request: ImageAnalysisRequest, config?: Record<string, string>) {
     const prompt = buildImageAnalysisPrompt(request);
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -97,7 +112,7 @@ const communityProvider: AIProvider = {
         ],
       },
     ];
-    const raw = await chatCompletion(messages);
+    const raw = await chatCompletion(messages, config);
     return safeParseJSON<FoodVerdict>(raw);
   },
 };

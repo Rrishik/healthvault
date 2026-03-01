@@ -11,7 +11,7 @@ function getCorsHeaders(req: HttpRequest): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, x-access-code',
   };
 }
 
@@ -48,6 +48,19 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'Forbidden' }),
     };
+  }
+
+  // Access code check
+  const accessCode = process.env.ACCESS_CODE;
+  if (accessCode) {
+    const provided = req.headers.get('x-access-code') || '';
+    if (provided !== accessCode) {
+      return {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Invalid or missing access code' }),
+      };
+    }
   }
 
   // Rate limiting
