@@ -110,11 +110,11 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
 
   // Body size limit (prevent abuse with large payloads)
   const bodyStr = JSON.stringify(body);
-  if (bodyStr.length > 500_000) {
+  if (bodyStr.length > 4_000_000) {
     return {
       status: 413,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Request body too large (max 500KB)' }),
+      body: JSON.stringify({ error: 'Request body too large (max 4MB)' }),
     };
   }
 

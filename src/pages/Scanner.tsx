@@ -9,6 +9,31 @@ import type { FoodVerdict } from '../types';
 
 type InputMode = 'manual' | 'upload' | 'camera';
 
+/** Resize an image to fit within maxDim and compress as JPEG */
+function compressImage(dataUrl: string, maxDim = 1024, quality = 0.7): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error('Failed to load image for compression'));
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      const base64 = compressed.split(',')[1];
+      resolve({ base64, mimeType: 'image/jpeg' });
+    };
+    img.src = dataUrl;
+  });
+}
+
 export default function Scanner() {
   const { analyzeFood, analyzeImage, loading, error } = useAIProvider();
   const [mode, setMode] = useState<InputMode>('manual');
@@ -37,9 +62,9 @@ export default function Scanner() {
     };
     reader.onload = async () => {
       const dataUrl = reader.result as string;
-      const [header, base64] = dataUrl.split(',');
-      const mimeMatch = header.match(/data:(.*?);/);
-      const mimeType = mimeMatch?.[1] ?? 'image/jpeg';
+
+      // Compress to keep within proxy limits
+      const { base64, mimeType } = await compressImage(dataUrl);
 
       // Try image analysis first
       const result = await analyzeImage(base64, mimeType);
