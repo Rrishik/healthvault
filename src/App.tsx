@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Onboarding from './pages/Onboarding';
 import Scanner from './pages/Scanner';
@@ -19,12 +20,13 @@ function AppRoutes() {
     );
   }
 
-  // Redirect to onboarding if not completed
+  // Redirect to landing → onboarding if not completed
   if (!settings?.onboardingComplete) {
     return (
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="*" element={<Navigate to="/onboarding" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }

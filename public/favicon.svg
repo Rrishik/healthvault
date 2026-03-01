@@ -4,25 +4,8 @@
   <!-- Cross -->
   <rect x="27" y="18" width="10" height="26" rx="2" fill="white"/>
   <rect x="19" y="26" width="26" height="10" rx="2" fill="white"/>
-  <!-- Leaf badge (bottom-right corner of shield) -->
-  <circle cx="48" cy="48" r="12" fill="#16a34a" stroke="#15803d" stroke-width="1.5"/>
-  <!-- Slanted leaf (tilted ~40° to the right) -->
-  <g transform="rotate(-40, 48, 48)">
-    <path d="M48 39 C44 43 42 47 44 50 C45 52 47 53 48 53 C49 53 51 52 52 50 C54 47 52 43 48 39Z" fill="white"/>
-    <!-- Stem -->
-    <path d="M48 53 L48 57" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-    <!-- Centre vein -->
-    <path d="M48 41 L48 52" stroke="#16a34a" stroke-width="1" stroke-linecap="round" fill="none"/>
-    <!-- Side veins (angled outward, evenly spaced, ending short of leaf edge) -->
-    <path d="M48 42 L46.5 41.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 42 L49.5 41.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 44.5 L46 43.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 44.5 L50 43.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 47 L45 45.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 47 L51 45.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 49.5 L45 48.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 49.5 L51 48.5" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 52 L45.5 51" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-    <path d="M48 52 L50.5 51" stroke="#16a34a" stroke-width="0.7" stroke-linecap="round" fill="none"/>
-  </g>
+  <!-- Heart badge (bottom-right corner of shield) -->
+  <circle cx="48" cy="48" r="12" fill="#dc2626" stroke="#b91c1c" stroke-width="1.5"/>
+  <!-- Heart -->
+  <path d="M48 55 C44 51 39 47 39 44 C39 41.5 41 40 43 40 C45 40 46.5 41 48 43 C49.5 41 51 40 53 40 C55 40 57 41.5 57 44 C57 47 52 51 48 55Z" fill="white"/>
 </svg>
