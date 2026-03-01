@@ -1,0 +1,19 @@
+{
+  "name": "healthvault-proxy",
+  "version": "1.0.0",
+  "description": "Azure Function proxy for HealthVault community AI endpoint",
+  "main": "dist/functions/chat.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "npm run build && func start",
+    "prestart": "npm run build"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.6.0"
+  }
+}
