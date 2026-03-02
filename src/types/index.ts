@@ -77,6 +77,14 @@ export interface Message {
   timestamp: number;
 }
 
+export interface Conversation {
+  id?: number;
+  title: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ---------- AI request / response types ----------
 
 export interface FoodAnalysisRequest {

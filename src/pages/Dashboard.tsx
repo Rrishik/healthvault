@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { getRecentScans, getRecentInteractions } from '../services/db';
 import type { FoodScanRecord, InteractionLog } from '../types';
-import { verdictEmoji } from '../constants';
+import { verdictEmoji, DISPLAY_ITEMS_COUNT } from '../constants';
 
 export default function Dashboard() {
   const { profile, provider } = useAppContext();
@@ -179,7 +179,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            {recentChats.slice(0, 3).map((chat) => (
+            {recentChats.slice(0, DISPLAY_ITEMS_COUNT).map((chat) => (
               <div
                 key={chat.id}
                 className="bg-surface-800 border border-surface-700 rounded-lg p-3"

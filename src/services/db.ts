@@ -4,13 +4,16 @@ import type {
   InteractionLog,
   FoodScanRecord,
   AppSettings,
+  Conversation,
 } from '../types';
+import { DEFAULT_CHAT_TITLE } from '../constants';
 
 class HealthVaultDB extends Dexie {
   healthProfile!: Table<HealthProfile, number>;
   interactionLog!: Table<InteractionLog, number>;
   foodScanHistory!: Table<FoodScanRecord, number>;
   appSettings!: Table<AppSettings, number>;
+  conversations!: Table<Conversation, number>;
 
   constructor() {
     super('HealthVaultDB');
@@ -19,6 +22,13 @@ class HealthVaultDB extends Dexie {
       interactionLog: '++id, type, providerId, timestamp',
       foodScanHistory: '++id, source, providerId, timestamp',
       appSettings: '++id',
+    });
+    this.version(2).stores({
+      healthProfile: '++id, updatedAt',
+      interactionLog: '++id, type, providerId, timestamp',
+      foodScanHistory: '++id, source, providerId, timestamp',
+      appSettings: '++id',
+      conversations: '++id, updatedAt',
     });
   }
 }
@@ -114,4 +124,42 @@ export async function updateSettings(
   if (settings.id) {
     await db.appSettings.update(settings.id, patch);
   }
+}
+
+// ---------- Conversation helpers ----------
+
+export async function getActiveConversation(): Promise<
+  Conversation | undefined
+> {
+  return db.conversations.orderBy('updatedAt').last();
+}
+
+export async function saveConversation(
+  conversation: Conversation,
+): Promise<number> {
+  const now = Date.now();
+  if (conversation.id) {
+    await db.conversations.update(conversation.id, {
+      messages: conversation.messages,
+      title: conversation.title,
+      updatedAt: now,
+    });
+    return conversation.id;
+  }
+  return db.conversations.add({
+    ...conversation,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+export async function startNewConversation(): Promise<Conversation> {
+  const now = Date.now();
+  const id = await db.conversations.add({
+    title: DEFAULT_CHAT_TITLE,
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+  return { id, title: DEFAULT_CHAT_TITLE, messages: [], createdAt: now, updatedAt: now };
 }

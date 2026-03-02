@@ -10,6 +10,7 @@ import type {
 import type { FoodVerdict } from '../../types';
 import { registerProvider } from '../registry';
 import { safeParseJSON } from '../utils';
+import { DEFAULT_TEMPERATURE } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
@@ -35,7 +36,7 @@ async function chatCompletion(
     body: JSON.stringify({
       model: config.model || 'gpt-4o-mini',
       messages,
-      temperature: 0.3,
+      temperature: DEFAULT_TEMPERATURE,
       response_format: { type: 'json_object' },
     }),
   });

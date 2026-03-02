@@ -1,5 +1,7 @@
 // HealthVault — Shared adapter utilities
 
+import { DEBUG_TRUNCATE_LENGTH } from '../constants';
+
 /**
  * Safely parse a JSON string from an AI response.
  * Strips markdown code fences if present and provides descriptive errors.
@@ -18,7 +20,7 @@ export function safeParseJSON<T>(raw: string): T {
   } catch (e) {
     throw new Error(
       `Failed to parse AI response as JSON: ${e instanceof Error ? e.message : String(e)}\n` +
-        `Raw response (first 300 chars): ${raw.slice(0, 300)}`,
+        `Raw response (first ${DEBUG_TRUNCATE_LENGTH} chars): ${raw.slice(0, DEBUG_TRUNCATE_LENGTH)}`,
     );
   }
 }

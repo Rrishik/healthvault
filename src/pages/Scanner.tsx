@@ -6,11 +6,12 @@ import { useAIProvider } from '../hooks/useAIProvider';
 import { extractIngredients } from '../services/ocr';
 import VerdictCard from '../components/VerdictCard';
 import type { FoodVerdict } from '../types';
+import { IMAGE_MAX_DIM, IMAGE_QUALITY } from '../constants';
 
 type InputMode = 'manual' | 'upload' | 'camera';
 
 /** Resize an image to fit within maxDim and compress as JPEG */
-function compressImage(dataUrl: string, maxDim = 1024, quality = 0.7): Promise<{ base64: string; mimeType: string }> {
+function compressImage(dataUrl: string, maxDim = IMAGE_MAX_DIM, quality = IMAGE_QUALITY): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onerror = () => reject(new Error('Failed to load image for compression'));

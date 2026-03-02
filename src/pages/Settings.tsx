@@ -5,6 +5,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { exportData, importData } from '../services/export';
 import ProviderSetup from '../components/ProviderSetup';
+import { STATUS_TOAST_DURATION_MS } from '../constants';
 
 export default function Settings() {
   const {
@@ -61,7 +62,7 @@ export default function Settings() {
     if (!provider) return;
     await setProviderConfig(provider.id, configDraft);
     setConfigSaved(true);
-    setTimeout(() => setConfigSaved(false), 2000);
+    setTimeout(() => setConfigSaved(false), STATUS_TOAST_DURATION_MS);
   };
 
   const handleExport = async () => {
@@ -73,7 +74,7 @@ export default function Settings() {
     } catch (e) {
       setExportStatus(`Error: ${e instanceof Error ? e.message : 'Unknown'}`);
     }
-    setTimeout(() => setExportStatus(''), 3000);
+    setTimeout(() => setExportStatus(''), STATUS_TOAST_DURATION_MS);
   };
 
   const handleImport = async (file: File) => {
@@ -89,7 +90,7 @@ export default function Settings() {
         `Error: ${e instanceof Error ? e.message : 'Decryption failed'}`,
       );
     }
-    setTimeout(() => setImportStatus(''), 4000);
+    setTimeout(() => setImportStatus(''), STATUS_TOAST_DURATION_MS);
   };
 
   const handleSaveProfile = async () => {

@@ -15,8 +15,8 @@ interface ProviderSetupProps {
   onSaveConfig?: () => void;
   /** Show saved confirmation label (controlled externally) */
   configSaved?: boolean;
-  /** Called with true/false after test connection completes */
-  onConnectionResult?: (ok: boolean) => void;
+  /** Called with true/false after test connection completes. May return a Promise to keep the button loading. */
+  onConnectionResult?: (ok: boolean) => void | Promise<void>;
 }
 
 export default function ProviderSetup({
@@ -40,11 +40,11 @@ export default function ProviderSetup({
     setConnectionOk(null);
     try {
       const ok = await provider.validateConfig(config);
+      await onConnectionResult?.(ok);
       setConnectionOk(ok);
-      onConnectionResult?.(ok);
     } catch {
+      await onConnectionResult?.(false);
       setConnectionOk(false);
-      onConnectionResult?.(false);
     } finally {
       setValidating(false);
     }
@@ -104,7 +104,7 @@ export default function ProviderSetup({
               {validating ? (
                 <>
                   <span className="w-4 h-4 border-2 border-surface-400 border-t-transparent rounded-full animate-spin" />
-                  Testing…
+                  Establishing connection…
                 </>
               ) : (
                 <>
@@ -118,10 +118,10 @@ export default function ProviderSetup({
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                     />
                   </svg>
-                  Test Connection
+                  Establish Secure Connection
                 </>
               )}
             </button>

@@ -1,10 +1,16 @@
 // HealthVault — Onboarding suggestion engine
-// Phase 1: On Test Connection → locale-aware health conditions only.
+// Phase 1: On Test Connection → locale-aware health conditions + allergies.
 // Phase 2: After user selects conditions → contextual suggestions for
-//          allergies, medications, dietary preferences, and health goals.
+//          medications, dietary preferences, and health goals.
 // Falls back to hardcoded defaults if the AI call fails or times out.
 
 import type { AIProvider } from '../adapters/types';
+import {
+  AI_REQUEST_TIMEOUT_MS,
+  MAX_SUGGESTION_ITEMS,
+  DEBUG_TRUNCATE_LENGTH,
+  LOG_PREFIX,
+} from '../constants';
 
 // ---------- Types ----------
 
@@ -18,10 +24,15 @@ export interface OnboardingSuggestions {
 
 /** Downstream-only subset returned by Phase 2 */
 export interface ContextualSuggestions {
-  allergies: string[];
   medications: string[];
   dietaryPreferences: string[];
   healthGoals: string[];
+}
+
+/** Phase 1 result: locale-aware conditions + allergies */
+export interface Phase1Suggestions {
+  conditions: string[];
+  allergies: string[];
 }
 
 // ---------- Hardcoded fallbacks (always available offline) ----------
@@ -31,11 +42,12 @@ const FALLBACK_CONDITIONS: string[] = [
   'IBS', 'GERD', 'Thyroid Disorder', 'Kidney Disease', 'Liver Disease',
 ];
 
+const FALLBACK_ALLERGIES: string[] = [
+  'Peanuts', 'Tree Nuts', 'Milk', 'Eggs', 'Wheat', 'Soy', 'Fish',
+  'Shellfish', 'Sesame', 'Gluten',
+];
+
 const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
-  allergies: [
-    'Peanuts', 'Tree Nuts', 'Milk', 'Eggs', 'Wheat', 'Soy', 'Fish',
-    'Shellfish', 'Sesame', 'Gluten',
-  ],
   medications: [],
   dietaryPreferences: [
     'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Halal', 'Kosher',
@@ -48,7 +60,7 @@ const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
 };
 
 export function getFallbackSuggestions(): OnboardingSuggestions {
-  return { conditions: FALLBACK_CONDITIONS, ...FALLBACK_CONTEXTUAL };
+  return { conditions: FALLBACK_CONDITIONS, allergies: FALLBACK_ALLERGIES, ...FALLBACK_CONTEXTUAL };
 }
 
 export function getFallbackContextual(): ContextualSuggestions {
@@ -66,19 +78,23 @@ function getLocaleInfo(): { locale: string; timezone: string } {
 
 // ---------- AI-powered generation ----------
 
-// Phase 1: conditions only
-const CONDITIONS_PROMPT = `Based on my locale and region, suggest common chronic or long-term health conditions that people regularly manage and track.
+// Phase 1: conditions + allergies (both locale-based)
+const PHASE1_PROMPT = `Based on my locale and region, suggest:
+1. Common chronic or long-term health conditions that people regularly manage and track
+2. Common food allergens and sensitivities in this region
 
 USER LOCALE: {locale}
 USER TIMEZONE: {timezone}
 
-Only include ongoing lifestyle or chronic conditions (e.g. diabetes, hypertension, asthma, PCOS).
+For conditions: only include ongoing lifestyle or chronic conditions (e.g. diabetes, hypertension, asthma, PCOS).
 Do NOT include acute, one-time, or short-term illnesses (e.g. dengue, flu, food poisoning).
 
-Put your entire response in the "answer" field as a JSON string containing this structure:
-{"conditions":["..."]}
+For allergies: include common food allergens and environmental sensitivities typical in this region.
 
-Provide 8-12 short items (1-4 words each).`;
+Put your entire response in the "answer" field as a JSON string containing this structure:
+{"conditions":["..."],"allergies":["..."]}
+
+Each category should have 8-12 short items (1-4 words each).`;
 
 // Phase 2: contextual downstream suggestions based on selected conditions
 const CONTEXTUAL_PROMPT = `I have the following health conditions: {conditions}
@@ -87,34 +103,33 @@ USER LOCALE: {locale}
 USER TIMEZONE: {timezone}
 
 Based on these conditions and my locale/region, suggest relevant items for each category:
-- Allergies & sensitivities commonly associated with these conditions
 - Common medications (use regional brand names where possible)
-- Dietary preferences that help manage these conditions
+- Dietary preferences: actual diet types or lifestyle choices (e.g. Vegetarian, Vegan, Non-Vegetarian, Eggitarian, Keto, Low-Sodium, Gluten-Free, Halal, Kosher). Do NOT list specific nutrients or foods.
 - Health goals appropriate for someone with these conditions
 
 Put your entire response in the "answer" field as a JSON string containing this structure:
-{"allergies":["..."],"medications":["..."],"dietaryPreferences":["..."],"healthGoals":["..."]}
+{"medications":["..."],"dietaryPreferences":["..."],"healthGoals":["..."]}
 
 Each category should have 8-12 short items (1-4 words each).`;
 
 // ---------- Shared helpers ----------
 
-/** Sanitise: trim, remove empties, deduplicate, cap at 12 each */
+/** Sanitise: trim, remove empties, deduplicate, cap at MAX_SUGGESTION_ITEMS each */
 const sanitise = (arr: string[]) =>
-  [...new Set(arr.map((s) => s.trim()).filter(Boolean))].slice(0, 12);
+  [...new Set(arr.map((s) => s.trim()).filter(Boolean))].slice(0, MAX_SUGGESTION_ITEMS);
 
 /** Extract JSON object from AI answer text (may have trailing disclaimers). */
 function extractJSON(answerText: string): unknown | null {
   const jsonStart = answerText.indexOf('{');
   const jsonEnd = answerText.lastIndexOf('}');
   if (jsonStart === -1 || jsonEnd === -1) {
-    console.warn('[HealthVault] No JSON object found in answer:', answerText);
+    console.warn(`${LOG_PREFIX} No JSON object found in answer:`, answerText);
     return null;
   }
   try {
     return JSON.parse(answerText.slice(jsonStart, jsonEnd + 1));
   } catch {
-    console.warn('[HealthVault] Failed to parse JSON:', answerText.slice(jsonStart, jsonStart + 300));
+    console.warn(`${LOG_PREFIX} Failed to parse JSON:`, answerText.slice(jsonStart, jsonStart + DEBUG_TRUNCATE_LENGTH));
     return null;
   }
 }
@@ -127,20 +142,38 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-// ---------- Phase 1: Conditions ----------
+// ---------- Phase 1: Conditions + Allergies ----------
+
+/** In-flight Phase 1 promise — prevents duplicate concurrent calls (e.g. React StrictMode). */
+let phase1InFlight: Promise<Phase1Suggestions | null> | null = null;
 
 /**
- * Call the AI provider to generate locale-aware health condition suggestions.
- * Returns null on failure (caller should use hardcoded fallback conditions).
- * Enforces a 15-second timeout.
+ * Call the AI provider to generate locale-aware condition and allergy suggestions.
+ * Returns null on failure (caller should use hardcoded fallbacks).
+ * Enforces a 15-second timeout. Deduplicates concurrent calls.
  */
-export async function generateConditionSuggestions(
+export async function generatePhase1Suggestions(
   provider: AIProvider,
   config: Record<string, string>,
-): Promise<string[] | null> {
+): Promise<Phase1Suggestions | null> {
+  // Return existing in-flight promise if one is active
+  if (phase1InFlight) return phase1InFlight;
+
+  phase1InFlight = _generatePhase1(provider, config);
+  try {
+    return await phase1InFlight;
+  } finally {
+    phase1InFlight = null;
+  }
+}
+
+async function _generatePhase1(
+  provider: AIProvider,
+  config: Record<string, string>,
+): Promise<Phase1Suggestions | null> {
   try {
     const { locale, timezone } = getLocaleInfo();
-    const prompt = CONDITIONS_PROMPT
+    const prompt = PHASE1_PROMPT
       .replace('{locale}', locale)
       .replace('{timezone}', timezone);
 
@@ -153,23 +186,26 @@ export async function generateConditionSuggestions(
         },
         config,
       ),
-      15_000,
+      AI_REQUEST_TIMEOUT_MS,
     );
 
     if (!result) {
-      console.warn('[HealthVault] Condition suggestions timed out');
+      console.warn(`${LOG_PREFIX} Phase 1 suggestions timed out`);
       return null;
     }
 
-    console.log('[HealthVault] Phase 1 raw response:', result);
+    console.log(`${LOG_PREFIX} Phase 1 raw response:`, result);
 
-    const parsed = extractJSON(result.answer) as { conditions?: string[] } | null;
-    if (!parsed || !Array.isArray(parsed.conditions)) return null;
+    const parsed = extractJSON(result.answer) as { conditions?: string[]; allergies?: string[] } | null;
+    if (!parsed || !Array.isArray(parsed.conditions) || !Array.isArray(parsed.allergies)) return null;
 
-    console.log('[HealthVault] Phase 1 parsed conditions:', parsed.conditions);
-    return sanitise(parsed.conditions);
+    console.log(`${LOG_PREFIX} Phase 1 parsed:`, parsed);
+    return {
+      conditions: sanitise(parsed.conditions),
+      allergies: sanitise(parsed.allergies),
+    };
   } catch (err) {
-    console.warn('[HealthVault] Failed to generate condition suggestions', err);
+    console.warn(`${LOG_PREFIX} Failed to generate Phase 1 suggestions`, err);
     return null;
   }
 }
@@ -178,7 +214,7 @@ export async function generateConditionSuggestions(
 
 /**
  * Call the AI provider to generate condition-aware suggestions for downstream
- * onboarding steps (allergies, medications, dietary preferences, health goals).
+ * onboarding steps (medications, dietary preferences, health goals).
  * Returns null on failure (caller keeps existing suggestions/fallbacks).
  * Enforces a 15-second timeout.
  */
@@ -203,50 +239,48 @@ export async function generateContextualSuggestions(
         },
         config,
       ),
-      15_000,
+      AI_REQUEST_TIMEOUT_MS,
     );
 
     if (!result) {
-      console.warn('[HealthVault] Contextual suggestions timed out');
+      console.warn(`${LOG_PREFIX} Contextual suggestions timed out`);
       return null;
     }
 
-    console.log('[HealthVault] Phase 2 raw response:', result);
+    console.log(`${LOG_PREFIX} Phase 2 raw response:`, result);
 
     const parsed = extractJSON(result.answer) as ContextualSuggestions | null;
     if (
       !parsed ||
-      !Array.isArray(parsed.allergies) ||
       !Array.isArray(parsed.medications) ||
       !Array.isArray(parsed.dietaryPreferences) ||
       !Array.isArray(parsed.healthGoals)
     ) {
-      console.warn('[HealthVault] Invalid contextual suggestions shape');
+      console.warn(`${LOG_PREFIX} Invalid contextual suggestions shape`);
       return null;
     }
 
-    console.log('[HealthVault] Phase 2 parsed suggestions:', parsed);
+    console.log(`${LOG_PREFIX} Phase 2 parsed suggestions:`, parsed);
 
     return {
-      allergies: sanitise(parsed.allergies),
       medications: sanitise(parsed.medications),
       dietaryPreferences: sanitise(parsed.dietaryPreferences),
       healthGoals: sanitise(parsed.healthGoals),
     };
   } catch (err) {
-    console.warn('[HealthVault] Failed to generate contextual suggestions', err);
+    console.warn(`${LOG_PREFIX} Failed to generate contextual suggestions`, err);
     return null;
   }
 }
 
 // ---------- Legacy wrapper (kept for backward compat if needed) ----------
 
-/** @deprecated Use generateConditionSuggestions + generateContextualSuggestions */
+/** @deprecated Use generatePhase1Suggestions + generateContextualSuggestions */
 export async function generateOnboardingSuggestions(
   provider: AIProvider,
   config: Record<string, string>,
 ): Promise<OnboardingSuggestions | null> {
-  const conditions = await generateConditionSuggestions(provider, config);
-  if (!conditions) return null;
-  return { conditions, ...getFallbackContextual() };
+  const phase1 = await generatePhase1Suggestions(provider, config);
+  if (!phase1) return null;
+  return { ...phase1, ...getFallbackContextual() };
 }

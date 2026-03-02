@@ -15,7 +15,7 @@ import ProviderSetup from '../components/ProviderSetup';
 import ChipSelector from '../components/ChipSelector';
 import TagInput from '../components/TagInput';
 import {
-  generateConditionSuggestions,
+  generatePhase1Suggestions,
   generateContextualSuggestions,
   getFallbackSuggestions,
   type OnboardingSuggestions,
@@ -54,22 +54,26 @@ export default function Onboarding() {
     profile?.dietaryPreferences ?? [],
   );
   const [healthGoals, setHealthGoals] = useState<string[]>(profile?.healthGoals ?? []);
+  const [establishing, setEstablishing] = useState(false);  // true while Phase 1 in progress
+  const [connectionVerified, setConnectionVerified] = useState(false);  // true after successful connection
 
   const totalSteps = 8; // provider + 7 profile steps
 
-  // ---------- Phase 1: Fire condition suggestions after successful connection ----------
-  const handleConnectionResult = (ok: boolean) => {
+  // ---------- Phase 1: Fire condition + allergy suggestions after successful connection ----------
+  const handleConnectionResult = async (ok: boolean) => {
     if (ok && !conditionsRequested.current) {
       conditionsRequested.current = true;
       const prov = providers.find((p) => p.id === selectedProvider);
       if (!prov) return;
+      setEstablishing(true);
       setConditionsLoading(true);
-      generateConditionSuggestions(prov, configDraft).then((result) => {
-        if (result) {
-          setSuggestions((prev) => ({ ...prev, conditions: result }));
-        }
-        setConditionsLoading(false);
-      });
+      const result = await generatePhase1Suggestions(prov, configDraft);
+      if (result) {
+        setSuggestions((prev) => ({ ...prev, conditions: result.conditions, allergies: result.allergies }));
+      }
+      setConditionsLoading(false);
+      setEstablishing(false);
+      setConnectionVerified(true);
     }
   };
 
@@ -89,7 +93,6 @@ export default function Onboarding() {
         setSuggestions((prev) => ({
           ...prev,
           // Merge: keep any items the user already selected + new AI options
-          allergies: [...new Set([...allergies, ...result.allergies])],
           medications: [...new Set([...medications, ...result.medications])],
           dietaryPreferences: [...new Set([...dietaryPreferences, ...result.dietaryPreferences])],
           healthGoals: [...new Set([...healthGoals, ...result.healthGoals])],
@@ -98,7 +101,7 @@ export default function Onboarding() {
       setContextualLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conditions, allergies, medications, dietaryPreferences, healthGoals, selectedProvider, configDraft, providers]);
+  }, [conditions, medications, dietaryPreferences, healthGoals, selectedProvider, configDraft, providers]);
 
   const handleFinish = async () => {
     await saveProfile({
@@ -147,12 +150,14 @@ export default function Onboarding() {
           setConfigDraft({});
           conditionsRequested.current = false;
           lastContextConditions.current = '';
+          setConnectionVerified(false);
         }}
         config={configDraft}
         onConfigChange={(key, value) => {
           setConfigDraft((prev) => ({ ...prev, [key]: value }));
           conditionsRequested.current = false;
           lastContextConditions.current = '';
+          setConnectionVerified(false);
         }}
         onConnectionResult={handleConnectionResult}
       />
@@ -226,7 +231,7 @@ export default function Onboarding() {
     <div key="allergies" className="space-y-4">
       <h2 className="text-xl font-semibold">Allergies</h2>
       <p className="text-surface-400 text-sm">Select known allergies or add your own.</p>
-      <ChipSelector options={suggestions.allergies} selected={allergies} onChange={setAllergies} loading={contextualLoading} />
+      <ChipSelector options={suggestions.allergies} selected={allergies} onChange={setAllergies} loading={conditionsLoading} />
       <TagInput
         tags={allergies.filter((a) => !suggestions.allergies.includes(a))}
         onChange={(custom) => setAllergies([...allergies.filter((a) => suggestions.allergies.includes(a)), ...custom])}
@@ -320,7 +325,8 @@ export default function Onboarding() {
               if (step === 2) fireContextualSuggestions();
               setStep(step + 1);
             }}
-            className="flex-1 bg-primary-600 hover:bg-primary-500 text-white py-2.5 rounded-lg text-sm transition-colors"
+            disabled={step === 0 && (establishing || !connectionVerified)}
+            className="flex-1 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors"
           >
             Next
           </button>

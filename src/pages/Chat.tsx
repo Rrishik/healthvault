@@ -1,14 +1,23 @@
 // HealthVault — Chat page (conversational health Q&A)
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useAppContext } from '../context/AppContext';
 import { pickRandomStarters } from '../services/starters';
+import { getActiveConversation, saveConversation, startNewConversation } from '../services/db';
 import ChatBubble from '../components/ChatBubble';
 import ProfileUpdatePrompt from '../components/ProfileUpdatePrompt';
-import type { Message } from '../types';
+import type { Message, Conversation } from '../types';
 import type { HealthQueryResponse } from '../adapters/types';
+import {
+  DEFAULT_CHAT_TITLE,
+  CHAT_TITLE_MAX_LENGTH,
+  DISPLAY_ITEMS_COUNT,
+  NEW_CHAT_TIP_THRESHOLD,
+  NEW_CHAT_PULSE_THRESHOLD,
+  LS_KEYS,
+} from '../constants';
 
 function buildStarters(profile?: { conditions?: string[]; allergies?: string[]; medications?: string[]; dietaryPreferences?: string[] } | null): string[] {
   const starters: string[] = [];
@@ -37,11 +46,11 @@ function buildStarters(profile?: { conditions?: string[]; allergies?: string[]; 
     'Can I eat dairy with my condition?',
   ];
   for (const f of fallbacks) {
-    if (starters.length >= 3) break;
+    if (starters.length >= DISPLAY_ITEMS_COUNT) break;
     if (!starters.includes(f)) starters.push(f);
   }
 
-  return starters.slice(0, 3);
+  return starters.slice(0, DISPLAY_ITEMS_COUNT);
 }
 
 export default function Chat() {
@@ -52,7 +61,7 @@ export default function Chat() {
   // Use AI-generated starters if available, otherwise fall back to profile-based ones
   const starters = useMemo(() => {
     if (settings?.chatStarters && settings.chatStarters.length > 0) {
-      return pickRandomStarters(settings.chatStarters, 3);
+      return pickRandomStarters(settings.chatStarters, DISPLAY_ITEMS_COUNT);
     }
     return buildStarters(profile);
   }, [settings?.chatStarters, profile]);
@@ -60,7 +69,50 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [pendingUpdate, setPendingUpdate] = useState<HealthQueryResponse['suggestedProfileUpdates'] | null>(null);
   const [updateExplanation, setUpdateExplanation] = useState('');
+  const [tipDismissed, setTipDismissed] = useState(
+    () => localStorage.getItem(LS_KEYS.NEW_CHAT_TIP_DISMISSED) === '1',
+  );
+
+  const dismissTip = useCallback(() => {
+    setTipDismissed(true);
+    localStorage.setItem(LS_KEYS.NEW_CHAT_TIP_DISMISSED, '1');
+  }, []);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const activeConvRef = useRef<Conversation | null>(null);
+
+  // Load the most recent conversation on mount
+  useEffect(() => {
+    getActiveConversation().then((conv) => {
+      if (conv && conv.messages.length > 0) {
+        activeConvRef.current = conv;
+        setMessages(conv.messages);
+      }
+    });
+  }, []);
+
+  // Persist conversation to IndexedDB
+  const persistMessages = useCallback(async (msgs: Message[]) => {
+    const conv = activeConvRef.current;
+    if (conv) {
+      conv.messages = msgs;
+      await saveConversation(conv);
+    } else {
+      // First message — create a new conversation
+      const title = msgs[0]?.content.slice(0, CHAT_TITLE_MAX_LENGTH) || DEFAULT_CHAT_TITLE;
+      const newConv = await startNewConversation();
+      newConv.title = title;
+      newConv.messages = msgs;
+      await saveConversation(newConv);
+      activeConvRef.current = newConv;
+    }
+  }, []);
+
+  const handleNewChat = useCallback(() => {
+    activeConvRef.current = null;
+    setMessages([]);
+    setInput('');
+    setPendingUpdate(null);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,7 +142,9 @@ export default function Chat() {
         content: response.answer,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+      const updatedMessages = [...messages, userMsg, assistantMsg];
+      setMessages(updatedMessages);
+      await persistMessages(updatedMessages);
 
       // Check for profile update suggestions
       if (response.suggestedProfileUpdates) {
@@ -181,6 +235,41 @@ export default function Chat() {
 
       {/* Input */}
       <div className="flex gap-2 pt-2 border-t border-surface-700">
+        {messages.length > 0 && (
+          <div className="relative shrink-0">
+            {/* Coachmark tooltip anchored to + button */}
+            {messages.length >= NEW_CHAT_TIP_THRESHOLD && !tipDismissed && (
+              <div className="absolute bottom-full left-0 mb-2 z-10 animate-fade-in">
+                <div className="relative bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 shadow-lg w-56">
+                  <button
+                    onClick={dismissTip}
+                    className="absolute top-1 right-1 text-surface-500 hover:text-surface-300"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <p className="text-xs text-surface-300 pr-3">
+                    💡 Start a new chat for unrelated questions — keeps answers faster & more accurate.
+                  </p>
+                  {/* Arrow pointing down at the + button */}
+                  <div className="absolute top-full left-5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-surface-600" />
+                </div>
+              </div>
+            )}
+            <button
+              onClick={handleNewChat}
+              title="Start a new conversation"
+              className={`flex items-center justify-center bg-primary-600 hover:bg-primary-500 text-white px-3 py-2.5 rounded-lg transition-colors${
+                messages.length >= NEW_CHAT_PULSE_THRESHOLD ? ' animate-pulse' : ''
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+          </div>
+        )}
         <input
           type="text"
           value={input}
