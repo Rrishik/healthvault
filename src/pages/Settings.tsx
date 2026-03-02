@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { exportData, importData } from '../services/export';
-import ConfigFieldRenderer from '../components/ConfigFieldRenderer';
+import ProviderSetup from '../components/ProviderSetup';
 
 export default function Settings() {
   const {
@@ -30,8 +30,6 @@ export default function Settings() {
     }
   }, [settings, provider]);
 
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<boolean | null>(null);
   const [configSaved, setConfigSaved] = useState(false);
 
   // Export/import state
@@ -56,8 +54,6 @@ export default function Settings() {
 
   const handleProviderChange = async (id: string) => {
     await selectProvider(id);
-    // configDraft sync is handled by useEffect above
-    setValidationResult(null);
     setConfigSaved(false);
   };
 
@@ -66,19 +62,6 @@ export default function Settings() {
     await setProviderConfig(provider.id, configDraft);
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 2000);
-  };
-
-  const handleValidate = async () => {
-    if (!provider) return;
-    setValidating(true);
-    try {
-      const ok = await provider.validateConfig(configDraft);
-      setValidationResult(ok);
-    } catch {
-      setValidationResult(false);
-    } finally {
-      setValidating(false);
-    }
   };
 
   const handleExport = async () => {
@@ -137,67 +120,15 @@ export default function Settings() {
       <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 space-y-4">
         <h3 className="text-sm font-semibold text-surface-100">AI Provider</h3>
 
-        <div>
-          <label className="text-xs text-surface-400 block mb-1">Provider</label>
-          <select
-            value={provider?.id ?? ''}
-            onChange={(e) => handleProviderChange(e.target.value)}
-            className="w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Select a provider</option>
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {provider?.id === 'community' && (
-          <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg p-3">
-            <p className="text-xs text-amber-300 leading-relaxed">
-              <span className="font-semibold">Note:</span> The Community provider routes your queries through a private Azure OpenAI resource. Your conversations (including health context) are sent to this service for processing. No data is stored on the server.
-            </p>
-          </div>
-        )}
-
-        {provider && (
-          <ConfigFieldRenderer
-            fields={provider.configSchema}
-            values={configDraft}
-            onChange={(key, value) => setConfigDraft({ ...configDraft, [key]: value })}
-            inputClassName="bg-surface-900 border border-surface-600"
-            labelClassName="text-xs text-surface-400"
-          />
-        )}
-
-        {provider && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleSaveConfig}
-              className="flex-1 bg-primary-600 hover:bg-primary-500 text-white text-sm py-2 rounded-lg transition-colors"
-            >
-              {configSaved ? '✓ Saved' : 'Save Config'}
-            </button>
-            <button
-              onClick={handleValidate}
-              disabled={validating}
-              className="px-4 bg-surface-700 hover:bg-surface-600 text-surface-200 text-sm py-2 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {validating ? 'Testing…' : 'Test Connection'}
-            </button>
-          </div>
-        )}
-
-        {validationResult !== null && (
-          <p
-            className={`text-xs ${validationResult ? 'text-green-400' : 'text-red-400'}`}
-          >
-            {validationResult
-              ? '✓ Connection successful!'
-              : '✗ Connection failed. Check your API key.'}
-          </p>
-        )}
+        <ProviderSetup
+          providers={providers}
+          selectedProviderId={provider?.id ?? ''}
+          onProviderChange={handleProviderChange}
+          config={configDraft}
+          onConfigChange={(key, value) => setConfigDraft({ ...configDraft, [key]: value })}
+          onSaveConfig={handleSaveConfig}
+          configSaved={configSaved}
+        />
       </section>
 
       {/* ---- Prompt Preview Toggle ---- */}

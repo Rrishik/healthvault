@@ -1,29 +1,22 @@
-// HealthVault — Onboarding page (6 skippable steps)
+// HealthVault — Onboarding page
+// Step 0: AI Provider setup (with Test Connection)
+// Steps 1–6: Profile entry with AI-powered locale-aware suggestions + hardcoded fallbacks
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useSettings } from '../hooks/useSettings';
-import ConfigFieldRenderer from '../components/ConfigFieldRenderer';
+import ProviderSetup from '../components/ProviderSetup';
+import ChipSelector from '../components/ChipSelector';
+import TagInput from '../components/TagInput';
+import {
+  generateOnboardingSuggestions,
+  getFallbackSuggestions,
+  type OnboardingSuggestions,
+} from '../services/onboarding-suggestions';
 
 const AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 const SEX_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say'];
-const COMMON_CONDITIONS = [
-  'Diabetes', 'Hypertension', 'Heart Disease', 'Asthma', 'Celiac Disease',
-  'IBS', 'GERD', 'Thyroid Disorder', 'Kidney Disease', 'Liver Disease',
-];
-const COMMON_ALLERGIES = [
-  'Peanuts', 'Tree Nuts', 'Milk', 'Eggs', 'Wheat', 'Soy', 'Fish',
-  'Shellfish', 'Sesame', 'Gluten',
-];
-const DIET_OPTIONS = [
-  'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Halal', 'Kosher',
-  'Gluten-Free', 'Dairy-Free', 'Low-Sodium', 'Low-Sugar',
-];
-const GOAL_OPTIONS = [
-  'Lose Weight', 'Gain Muscle', 'Improve Heart Health', 'Manage Blood Sugar',
-  'Reduce Inflammation', 'Improve Gut Health', 'Better Sleep', 'More Energy',
-];
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
@@ -32,59 +25,42 @@ export default function Onboarding() {
     useSettings();
   const navigate = useNavigate();
 
-  // Local state for form fields
+  // Provider state
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
+
+  // AI suggestions state
+  const [suggestions, setSuggestions] = useState<OnboardingSuggestions>(getFallbackSuggestions());
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const suggestionsRequested = useRef(false);
+
+  // Profile state
   const [ageRange, setAgeRange] = useState(profile?.ageRange ?? '');
   const [sex, setSex] = useState(profile?.sex ?? '');
   const [heightCm, setHeightCm] = useState(profile?.heightCm?.toString() ?? '');
   const [weightKg, setWeightKg] = useState(profile?.weightKg?.toString() ?? '');
   const [conditions, setConditions] = useState<string[]>(profile?.conditions ?? []);
-  const [conditionInput, setConditionInput] = useState('');
   const [allergies, setAllergies] = useState<string[]>(profile?.allergies ?? []);
-  const [allergyInput, setAllergyInput] = useState('');
   const [medications, setMedications] = useState<string[]>(profile?.medications ?? []);
-  const [medInput, setMedInput] = useState('');
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>(
     profile?.dietaryPreferences ?? [],
   );
   const [healthGoals, setHealthGoals] = useState<string[]>(profile?.healthGoals ?? []);
-  const [goalInput, setGoalInput] = useState('');
-  const [dietInput, setDietInput] = useState('');
 
-  // Provider setup
-  const [selectedProvider, setSelectedProvider] = useState('');
-  const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
+  const totalSteps = 7; // provider + 6 profile steps
 
-  const totalSteps = 7; // 6 profile steps + 1 provider setup
-
-  const toggleChip = (
-    list: string[],
-    setList: (v: string[]) => void,
-    item: string,
-  ) => {
-    setList(
-      list.includes(item) ? list.filter((i) => i !== item) : [...list, item],
-    );
-  };
-
-  const addTag = (
-    list: string[],
-    setList: (v: string[]) => void,
-    input: string,
-    setInput: (v: string) => void,
-  ) => {
-    const trimmed = input.trim();
-    if (trimmed && !list.includes(trimmed)) {
-      setList([...list, trimmed]);
+  // ---------- Fire AI suggestions after successful connection ----------
+  const handleConnectionResult = (ok: boolean) => {
+    if (ok && !suggestionsRequested.current) {
+      suggestionsRequested.current = true;
+      const prov = providers.find((p) => p.id === selectedProvider);
+      if (!prov) return;
+      setSuggestionsLoading(true);
+      generateOnboardingSuggestions(prov, configDraft).then((result) => {
+        if (result) setSuggestions(result);
+        setSuggestionsLoading(false);
+      });
     }
-    setInput('');
-  };
-
-  const removeTag = (
-    list: string[],
-    setList: (v: string[]) => void,
-    item: string,
-  ) => {
-    setList(list.filter((i) => i !== item));
   };
 
   const handleFinish = async () => {
@@ -103,7 +79,6 @@ export default function Onboarding() {
     if (selectedProvider && Object.values(configDraft).some(Boolean)) {
       await selectProvider(selectedProvider);
       const provider = providers.find((p) => p.id === selectedProvider);
-      // Merge any default values from the schema into the config
       const finalConfig = { ...configDraft };
       provider?.configSchema.forEach((f) => {
         if (!finalConfig[f.key] && f.defaultValue) {
@@ -117,78 +92,34 @@ export default function Onboarding() {
     navigate('/');
   };
 
-  const renderChips = (
-    options: string[],
-    selected: string[],
-    setSelected: (v: string[]) => void,
-  ) => (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => toggleChip(selected, setSelected, opt)}
-          className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-            selected.includes(opt)
-              ? 'bg-primary-600 text-white'
-              : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
-          }`}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-
-  const renderTagInput = (
-    list: string[],
-    setList: (v: string[]) => void,
-    input: string,
-    setInput: (v: string) => void,
-    placeholder: string,
-  ) => (
-    <div>
-      <div className="flex gap-2 mb-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addTag(list, setList, input, setInput);
-            }
-          }}
-          placeholder={placeholder}
-          className="flex-1 bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
-        />
-        <button
-          onClick={() => addTag(list, setList, input, setInput)}
-          className="bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 rounded-lg text-sm"
-        >
-          Add
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {list.map((item) => (
-          <span
-            key={item}
-            className="bg-surface-800 text-surface-200 text-xs px-2 py-1 rounded-md flex items-center gap-1"
-          >
-            {item}
-            <button
-              onClick={() => removeTag(list, setList, item)}
-              className="text-surface-500 hover:text-surface-200"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+  // ---------- Steps ----------
 
   const steps = [
-    // Step 0: Basics
+    // Step 0: AI Provider Setup
+    <div key="provider" className="space-y-4">
+      <h2 className="text-xl font-semibold">Connect AI Provider</h2>
+      <p className="text-surface-400 text-sm">
+        Choose an AI provider to power food analysis, health queries, and personalised suggestions.
+        Your API key is stored locally and never sent to our servers.
+      </p>
+      <ProviderSetup
+        providers={providers}
+        selectedProviderId={selectedProvider}
+        onProviderChange={(id) => {
+          setSelectedProvider(id);
+          setConfigDraft({});
+          suggestionsRequested.current = false;
+        }}
+        config={configDraft}
+        onConfigChange={(key, value) => {
+          setConfigDraft((prev) => ({ ...prev, [key]: value }));
+          suggestionsRequested.current = false;
+        }}
+        onConnectionResult={handleConnectionResult}
+      />
+    </div>,
+
+    // Step 1: Basics
     <div key="basics" className="space-y-4">
       <h2 className="text-xl font-semibold">Basic Information</h2>
       <p className="text-surface-400 text-sm">Help us personalize your experience. All fields are optional.</p>
@@ -234,99 +165,69 @@ export default function Onboarding() {
       </div>
     </div>,
 
-    // Step 1: Conditions
+    // Step 2: Conditions
     <div key="conditions" className="space-y-4">
       <h2 className="text-xl font-semibold">Health Conditions</h2>
       <p className="text-surface-400 text-sm">Select any existing conditions or add your own.</p>
-      {renderChips(COMMON_CONDITIONS, conditions, setConditions)}
-      {renderTagInput(
-        conditions.filter((c) => !COMMON_CONDITIONS.includes(c)),
-        (custom) => setConditions([...conditions.filter((c) => COMMON_CONDITIONS.includes(c)), ...custom]),
-        conditionInput,
-        setConditionInput,
-        'Add a condition…',
-      )}
+      <ChipSelector options={suggestions.conditions} selected={conditions} onChange={setConditions} loading={suggestionsLoading} />
+      <TagInput
+        tags={conditions.filter((c) => !suggestions.conditions.includes(c))}
+        onChange={(custom) => setConditions([...conditions.filter((c) => suggestions.conditions.includes(c)), ...custom])}
+        placeholder="Add a condition…"
+      />
     </div>,
 
-    // Step 2: Allergies
+    // Step 3: Allergies
     <div key="allergies" className="space-y-4">
       <h2 className="text-xl font-semibold">Allergies</h2>
       <p className="text-surface-400 text-sm">Select known allergies or add your own.</p>
-      {renderChips(COMMON_ALLERGIES, allergies, setAllergies)}
-      {renderTagInput(
-        allergies.filter((a) => !COMMON_ALLERGIES.includes(a)),
-        (custom) => setAllergies([...allergies.filter((a) => COMMON_ALLERGIES.includes(a)), ...custom]),
-        allergyInput,
-        setAllergyInput,
-        'Add an allergy…',
-      )}
+      <ChipSelector options={suggestions.allergies} selected={allergies} onChange={setAllergies} loading={suggestionsLoading} />
+      <TagInput
+        tags={allergies.filter((a) => !suggestions.allergies.includes(a))}
+        onChange={(custom) => setAllergies([...allergies.filter((a) => suggestions.allergies.includes(a)), ...custom])}
+        placeholder="Add an allergy…"
+      />
     </div>,
 
-    // Step 3: Medications
+    // Step 4: Medications
     <div key="medications" className="space-y-4">
       <h2 className="text-xl font-semibold">Medications</h2>
       <p className="text-surface-400 text-sm">List any medications you're currently taking.</p>
-      {renderTagInput(medications, setMedications, medInput, setMedInput, 'Add a medication…')}
+      {suggestions.medications.length > 0 && (
+        <>
+          <p className="text-xs text-surface-500">Common medications in your region:</p>
+          <ChipSelector options={suggestions.medications} selected={medications} onChange={setMedications} loading={suggestionsLoading} />
+        </>
+      )}
+      <TagInput
+        tags={medications.filter((m) => !suggestions.medications.includes(m))}
+        onChange={(custom) => setMedications([...medications.filter((m) => suggestions.medications.includes(m)), ...custom])}
+        placeholder="Add a medication…"
+      />
     </div>,
 
-    // Step 4: Diet
+    // Step 5: Diet
     <div key="diet" className="space-y-4">
       <h2 className="text-xl font-semibold">Dietary Preferences</h2>
       <p className="text-surface-400 text-sm">Select any dietary preferences you follow.</p>
-      {renderChips(DIET_OPTIONS, dietaryPreferences, setDietaryPreferences)}
-      {renderTagInput(
-        dietaryPreferences.filter((d) => !DIET_OPTIONS.includes(d)),
-        (custom) => setDietaryPreferences([...dietaryPreferences.filter((d) => DIET_OPTIONS.includes(d)), ...custom]),
-        dietInput,
-        setDietInput,
-        'Add a preference…',
-      )}
+      <ChipSelector options={suggestions.dietaryPreferences} selected={dietaryPreferences} onChange={setDietaryPreferences} loading={suggestionsLoading} />
+      <TagInput
+        tags={dietaryPreferences.filter((d) => !suggestions.dietaryPreferences.includes(d))}
+        onChange={(custom) => setDietaryPreferences([...dietaryPreferences.filter((d) => suggestions.dietaryPreferences.includes(d)), ...custom])}
+        placeholder="Add a preference…"
+      />
     </div>,
 
-    // Step 5: Goals
+    // Step 6: Goals
     <div key="goals" className="space-y-4">
       <h2 className="text-xl font-semibold">Health Goals</h2>
       <p className="text-surface-400 text-sm">What are you trying to achieve?</p>
-      {renderChips(GOAL_OPTIONS, healthGoals, setHealthGoals)}
-      {renderTagInput(
-        healthGoals.filter((g) => !GOAL_OPTIONS.includes(g)),
-        (custom) => setHealthGoals([...healthGoals.filter((g) => GOAL_OPTIONS.includes(g)), ...custom]),
-        goalInput,
-        setGoalInput,
-        'Add a goal…',
-      )}
-    </div>,
-
-    // Step 6: Provider setup
-    <div key="provider" className="space-y-4">
-      <h2 className="text-xl font-semibold">AI Provider Setup</h2>
-      <p className="text-surface-400 text-sm">
-        Connect an AI provider to power food analysis and health queries.
-        Your API key is stored locally and never sent to our servers.
-      </p>
-      <div>
-        <label className="text-sm text-surface-300 block mb-1">Provider</label>
-        <select
-          value={selectedProvider}
-          onChange={(e) => {
-            setSelectedProvider(e.target.value);
-            setConfigDraft({});
-          }}
-          className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-primary-500"
-        >
-          <option value="">Select a provider…</option>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-      {selectedProvider && (
-        <ConfigFieldRenderer
-          fields={providers.find((p) => p.id === selectedProvider)?.configSchema ?? []}
-          values={configDraft}
-          onChange={(key, value) => setConfigDraft({ ...configDraft, [key]: value })}
-        />
-      )}
+      <ChipSelector options={suggestions.healthGoals} selected={healthGoals} onChange={setHealthGoals} loading={suggestionsLoading} />
+      <TagInput
+        tags={healthGoals.filter((g) => !suggestions.healthGoals.includes(g))}
+        onChange={(custom) => setHealthGoals([...healthGoals.filter((g) => suggestions.healthGoals.includes(g)), ...custom])}
+        placeholder="Add a goal…"
+      />
     </div>,
   ];
 
@@ -356,7 +257,7 @@ export default function Onboarding() {
       </div>
 
       {/* Step content */}
-      <div className="flex-1 p-4 max-w-lg mx-auto w-full">{steps[step]}</div>
+      <div className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto">{steps[step]}</div>
 
       {/* Navigation */}
       <div className="p-4 max-w-lg mx-auto w-full flex gap-3">
