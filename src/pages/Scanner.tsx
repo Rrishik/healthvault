@@ -2,6 +2,7 @@
 // Supports: camera capture, file upload, manual text entry, and OCR
 
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useAppContext } from '../context/AppContext';
 import { assembleContext } from '../services/context-assembler';
@@ -9,6 +10,7 @@ import { buildFoodAnalysisPrompt } from '../prompts/food-analysis';
 import { extractIngredients } from '../services/ocr';
 import VerdictCard from '../components/VerdictCard';
 import PromptPreviewModal from '../components/PromptPreviewModal';
+import { startNewConversation, saveConversation } from '../services/db';
 import type { FoodVerdict } from '../types';
 import { IMAGE_MAX_DIM, IMAGE_QUALITY } from '../constants';
 
@@ -42,6 +44,7 @@ function compressImage(dataUrl: string, maxDim = IMAGE_MAX_DIM, quality = IMAGE_
 export default function Scanner() {
   const { analyzeFood, analyzeImage, loading, error } = useAIProvider();
   const { settings } = useAppContext();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<InputMode>('manual');
   const [ingredients, setIngredients] = useState('');
   const [verdict, setVerdict] = useState<FoodVerdict | null>(null);
@@ -219,7 +222,29 @@ export default function Scanner() {
       )}
 
       {/* Result */}
-      {verdict && !loading && <VerdictCard verdict={verdict} />}
+      {verdict && !loading && (
+        <>
+          <VerdictCard verdict={verdict} />
+          <button
+            onClick={async () => {
+              const conv = await startNewConversation();
+              const now = Date.now();
+              const ingredientList = ingredients.trim() || 'scanned food label';
+              conv.title = `Scan: ${ingredientList}`.slice(0, 60);
+              conv.messages = [
+                { role: 'user', content: `Are these ingredients safe for me? ${ingredientList}`, timestamp: now },
+                { role: 'assistant', content: verdict.summary, timestamp: now + 1 },
+              ];
+              conv.messageCount = 2;
+              await saveConversation(conv);
+              navigate(`/chat?conv=${conv.id}`);
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm bg-surface-800 hover:bg-surface-700 border border-surface-700 text-surface-200 transition-colors"
+          >
+            💬 Chat about this
+          </button>
+        </>
+      )}
 
       {/* Prompt preview modal */}
       {promptPreview && (
