@@ -81,9 +81,13 @@ export interface Conversation {
   id?: number;
   title: string;
   messages: Message[];
+  messageCount: number;
   createdAt: number;
   updatedAt: number;
 }
+
+/** Lightweight conversation metadata (without messages) for listings */
+export type ConversationSummary = Omit<Conversation, 'messages'>;
 
 // ---------- AI request / response types ----------
 

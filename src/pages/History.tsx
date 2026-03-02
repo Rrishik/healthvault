@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getRecentScans, getRecentConversations } from '../services/db';
-import type { FoodScanRecord, Conversation } from '../types';
+import { getRecentScans, getRecentConversationSummaries } from '../services/db';
+import type { FoodScanRecord, ConversationSummary } from '../types';
 import VerdictCard from '../components/VerdictCard';
 import { verdictEmoji } from '../constants';
 
@@ -12,16 +12,16 @@ type Tab = 'scans' | 'chats';
 export default function History() {
   const [tab, setTab] = useState<Tab>('scans');
   const [scans, setScans] = useState<FoodScanRecord[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [expandedScan, setExpandedScan] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
       getRecentScans(50),
-      getRecentConversations(50),
+      getRecentConversationSummaries(50),
     ]).then(([s, c]) => {
       setScans(s);
-      setConversations(c.filter((conv) => conv.messages.length > 0));
+      setConversations(c);
     });
   }, []);
 
@@ -119,7 +119,7 @@ export default function History() {
                 </p>
                 <p className="text-xs text-surface-500">
                   {new Date(conv.updatedAt).toLocaleString()} ·{' '}
-                  {conv.messages.length} message{conv.messages.length !== 1 ? 's' : ''}
+                  {conv.messageCount} message{conv.messageCount !== 1 ? 's' : ''}
                 </p>
               </div>
               <Link

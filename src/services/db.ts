@@ -5,8 +5,9 @@ import type {
   FoodScanRecord,
   AppSettings,
   Conversation,
+  ConversationSummary,
 } from '../types';
-import { DEFAULT_CHAT_TITLE } from '../constants';
+import { DEFAULT_CHAT_TITLE, MAX_CONVERSATIONS } from '../constants';
 
 class HealthVaultDB extends Dexie {
   healthProfile!: Table<HealthProfile, number>;
@@ -18,12 +19,6 @@ class HealthVaultDB extends Dexie {
   constructor() {
     super('HealthVaultDB');
     this.version(1).stores({
-      healthProfile: '++id, updatedAt',
-      interactionLog: '++id, type, providerId, timestamp',
-      foodScanHistory: '++id, source, providerId, timestamp',
-      appSettings: '++id',
-    });
-    this.version(2).stores({
       healthProfile: '++id, updatedAt',
       interactionLog: '++id, type, providerId, timestamp',
       foodScanHistory: '++id, source, providerId, timestamp',
@@ -138,19 +133,25 @@ export async function saveConversation(
   conversation: Conversation,
 ): Promise<number> {
   const now = Date.now();
+  const messageCount = conversation.messages.length;
   if (conversation.id) {
     await db.conversations.update(conversation.id, {
       messages: conversation.messages,
+      messageCount,
       title: conversation.title,
       updatedAt: now,
     });
+    await pruneOldConversations();
     return conversation.id;
   }
-  return db.conversations.add({
+  const id = await db.conversations.add({
     ...conversation,
+    messageCount,
     createdAt: now,
     updatedAt: now,
   });
+  await pruneOldConversations();
+  return id;
 }
 
 export async function startNewConversation(): Promise<Conversation> {
@@ -158,10 +159,12 @@ export async function startNewConversation(): Promise<Conversation> {
   const id = await db.conversations.add({
     title: DEFAULT_CHAT_TITLE,
     messages: [],
+    messageCount: 0,
     createdAt: now,
     updatedAt: now,
   } as Conversation);
-  return { id, title: DEFAULT_CHAT_TITLE, messages: [], createdAt: now, updatedAt: now };
+  await pruneOldConversations();
+  return { id, title: DEFAULT_CHAT_TITLE, messages: [], messageCount: 0, createdAt: now, updatedAt: now };
 }
 
 export async function getConversationById(
@@ -174,4 +177,33 @@ export async function getRecentConversations(
   limit: number,
 ): Promise<Conversation[]> {
   return db.conversations.orderBy('updatedAt').reverse().limit(limit).toArray();
+}
+
+/** Return lightweight conversation summaries (no messages array) for listings */
+export async function getRecentConversationSummaries(
+  limit: number,
+): Promise<ConversationSummary[]> {
+  const convs = await db.conversations.orderBy('updatedAt').reverse().limit(limit).toArray();
+  return convs
+    .filter((c) => c.messageCount > 0)
+    .map(({ messages: _msgs, ...summary }) => summary);
+}
+
+/** Delete oldest conversations beyond MAX_CONVERSATIONS */
+async function pruneOldConversations(): Promise<void> {
+  const count = await db.conversations.count();
+  if (count <= MAX_CONVERSATIONS) return;
+  const toDelete = count - MAX_CONVERSATIONS;
+  const oldest = await db.conversations
+    .orderBy('updatedAt')
+    .limit(toDelete)
+    .primaryKeys();
+  await db.conversations.bulkDelete(oldest);
+}
+
+/** Erase all IndexedDB data and localStorage keys, then reload */
+export async function clearAllData(): Promise<void> {
+  await db.delete();
+  localStorage.clear();
+  window.location.reload();
 }

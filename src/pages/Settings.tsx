@@ -351,6 +351,25 @@ export default function Settings() {
           AI provider.
         </p>
       </section>
+
+      {/* ---- Danger Zone ---- */}
+      <section className="bg-surface-800 border border-red-900/40 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-red-400">Danger Zone</h3>
+        <p className="text-xs text-surface-400">
+          Permanently delete all local data including profile, conversations,
+          scan history, and settings. This cannot be undone.
+        </p>
+        <button
+          onClick={() => {
+            if (window.confirm('Erase ALL HealthVault data? This cannot be undone.')) {
+              import('../services/db').then(({ clearAllData }) => clearAllData());
+            }
+          }}
+          className="bg-red-700 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg transition-colors"
+        >
+          Clear All Data
+        </button>
+      </section>
     </div>
   );
 }

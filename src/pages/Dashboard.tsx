@@ -3,21 +3,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { getRecentScans, getRecentConversations } from '../services/db';
-import type { FoodScanRecord, Conversation } from '../types';
+import { getRecentScans, getRecentConversationSummaries } from '../services/db';
+import type { FoodScanRecord, ConversationSummary } from '../types';
 import { verdictEmoji, DISPLAY_ITEMS_COUNT } from '../constants';
 
 export default function Dashboard() {
   const { profile, provider } = useAppContext();
   const [recentScans, setRecentScans] = useState<FoodScanRecord[]>([]);
-  const [recentConvs, setRecentConvs] = useState<Conversation[]>([]);
+  const [recentConvs, setRecentConvs] = useState<ConversationSummary[]>([]);
 
   useEffect(() => {
     const loadData = () => {
-      Promise.all([getRecentScans(5), getRecentConversations(5)]).then(
+      Promise.all([getRecentScans(5), getRecentConversationSummaries(5)]).then(
         ([scans, convs]) => {
           setRecentScans(scans);
-          setRecentConvs(convs.filter((c) => c.messages.length > 0));
+          setRecentConvs(convs);
         },
       );
     };
@@ -190,7 +190,7 @@ export default function Dashboard() {
                   </p>
                   <p className="text-xs text-surface-500">
                     {new Date(conv.updatedAt).toLocaleDateString()} ·{' '}
-                    {conv.messages.length} message{conv.messages.length !== 1 ? 's' : ''}
+                    {conv.messageCount} message{conv.messageCount !== 1 ? 's' : ''}
                   </p>
                 </div>
                 <Link

@@ -28,6 +28,9 @@ export const NEW_CHAT_TIP_THRESHOLD = 6;
 /** Pulse the new-chat button after this many messages */
 export const NEW_CHAT_PULSE_THRESHOLD = 12;
 
+/** Maximum number of conversations to keep in IndexedDB */
+export const MAX_CONVERSATIONS = 10;
+
 // ---------- Onboarding suggestions ----------
 
 /** Max items per suggestion category after sanitisation */
