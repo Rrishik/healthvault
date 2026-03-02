@@ -1,16 +1,61 @@
 // HealthVault — Chat page (conversational health Q&A)
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useHealthProfile } from '../hooks/useHealthProfile';
+import { useAppContext } from '../context/AppContext';
+import { pickRandomStarters } from '../services/starters';
 import ChatBubble from '../components/ChatBubble';
 import ProfileUpdatePrompt from '../components/ProfileUpdatePrompt';
 import type { Message } from '../types';
 import type { HealthQueryResponse } from '../adapters/types';
 
+function buildStarters(profile?: { conditions?: string[]; allergies?: string[]; medications?: string[]; dietaryPreferences?: string[] } | null): string[] {
+  const starters: string[] = [];
+
+  if (profile?.medications?.length) {
+    const med = profile.medications[0];
+    starters.push(`Any food interactions with ${med}?`);
+  }
+  if (profile?.allergies?.length) {
+    const allergy = profile.allergies[0];
+    starters.push(`What ingredients should I watch out for with my ${allergy} allergy?`);
+  }
+  if (profile?.conditions?.length) {
+    const condition = profile.conditions[0];
+    starters.push(`What foods help with ${condition}?`);
+  }
+  if (profile?.dietaryPreferences?.length) {
+    const pref = profile.dietaryPreferences[0];
+    starters.push(`Good ${pref} meal ideas for me?`);
+  }
+
+  // Fill remaining slots with generic starters
+  const fallbacks = [
+    'Is ibuprofen safe for me?',
+    'What foods help lower cholesterol?',
+    'Can I eat dairy with my condition?',
+  ];
+  for (const f of fallbacks) {
+    if (starters.length >= 3) break;
+    if (!starters.includes(f)) starters.push(f);
+  }
+
+  return starters.slice(0, 3);
+}
+
 export default function Chat() {
   const { askHealthQuery, loading, error } = useAIProvider();
   const { addToList } = useHealthProfile();
+  const { profile, settings } = useAppContext();
+
+  // Use AI-generated starters if available, otherwise fall back to profile-based ones
+  const starters = useMemo(() => {
+    if (settings?.chatStarters && settings.chatStarters.length > 0) {
+      return pickRandomStarters(settings.chatStarters, 3);
+    }
+    return buildStarters(profile);
+  }, [settings?.chatStarters, profile]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [pendingUpdate, setPendingUpdate] = useState<HealthQueryResponse['suggestedProfileUpdates'] | null>(null);
@@ -85,11 +130,7 @@ export default function Chat() {
               personalized answers.
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {[
-                'Is ibuprofen safe for me?',
-                'What foods help lower cholesterol?',
-                'Can I eat dairy with my condition?',
-              ].map((q) => (
+              {starters.map((q) => (
                 <button
                   key={q}
                   onClick={() => setInput(q)}

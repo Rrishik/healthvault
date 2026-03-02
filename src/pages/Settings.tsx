@@ -153,6 +153,14 @@ export default function Settings() {
           </select>
         </div>
 
+        {provider?.id === 'community' && (
+          <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg p-3">
+            <p className="text-xs text-amber-300 leading-relaxed">
+              <span className="font-semibold">Note:</span> The Community provider routes your queries through a private Azure OpenAI resource. Your conversations (including health context) are sent to this service for processing. No data is stored on the server.
+            </p>
+          </div>
+        )}
+
         {provider && (
           <ConfigFieldRenderer
             fields={provider.configSchema}
@@ -212,10 +220,10 @@ export default function Settings() {
             }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
                 settings?.showPromptBeforeSending
-                  ? 'translate-x-5.5'
-                  : 'translate-x-0.5'
+                  ? 'translate-x-5'
+                  : 'translate-x-0'
               }`}
             />
           </button>

@@ -48,6 +48,7 @@ export default function Onboarding() {
   );
   const [healthGoals, setHealthGoals] = useState<string[]>(profile?.healthGoals ?? []);
   const [goalInput, setGoalInput] = useState('');
+  const [dietInput, setDietInput] = useState('');
 
   // Provider setup
   const [selectedProvider, setSelectedProvider] = useState('');
@@ -271,8 +272,15 @@ export default function Onboarding() {
     // Step 4: Diet
     <div key="diet" className="space-y-4">
       <h2 className="text-xl font-semibold">Dietary Preferences</h2>
-      <p className="text-surface-400 text-sm">Select any dietary preferences or restrictions.</p>
+      <p className="text-surface-400 text-sm">Select any dietary preferences you follow.</p>
       {renderChips(DIET_OPTIONS, dietaryPreferences, setDietaryPreferences)}
+      {renderTagInput(
+        dietaryPreferences.filter((d) => !DIET_OPTIONS.includes(d)),
+        (custom) => setDietaryPreferences([...dietaryPreferences.filter((d) => DIET_OPTIONS.includes(d)), ...custom]),
+        dietInput,
+        setDietInput,
+        'Add a preference…',
+      )}
     </div>,
 
     // Step 5: Goals

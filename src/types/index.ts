@@ -49,6 +49,8 @@ export interface AppSettings {
   encryptedProviderConfigs?: string;
   showPromptBeforeSending: boolean;
   onboardingComplete: boolean;
+  /** AI-generated personalised conversation starters, cached on profile save */
+  chatStarters?: string[];
 }
 
 export interface FoodVerdict {

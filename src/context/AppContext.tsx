@@ -17,6 +17,7 @@ import {
   saveProfile as dbSaveProfile,
 } from '../services/db';
 import { encryptConfigData, decryptConfigData } from '../services/crypto';
+import { generateChatStarters } from '../services/starters';
 // Import adapters so they self-register before we use the registry
 import '../adapters/openai';
 import '../adapters/gemini';
@@ -109,7 +110,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await dbSaveProfile(patch);
     const fresh = await getProfile();
     setProfile(fresh ?? null);
-  }, []);
+
+    // Fire-and-forget: regenerate AI chat starters in the background
+    if (provider && settings) {
+      const config = settings.providerConfigs[provider.id] ?? {};
+      generateChatStarters(provider, config, fresh ?? null).then(async (starters) => {
+        if (starters && starters.length > 0) {
+          await dbUpdateSettings({ chatStarters: starters });
+          const s = await getSettings();
+          if (s.encryptedProviderConfigs) {
+            try {
+              s.providerConfigs = await decryptConfigData(s.encryptedProviderConfigs);
+            } catch {
+              s.providerConfigs = {};
+            }
+          }
+          setSettings(s);
+        }
+      });
+    }
+  }, [provider, settings]);
 
   const selectProvider = useCallback(
     async (id: string) => {
