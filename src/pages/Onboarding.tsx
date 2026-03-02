@@ -1,8 +1,13 @@
 // HealthVault — Onboarding page
 // Step 0: AI Provider setup (with Test Connection)
-// Steps 1–6: Profile entry with AI-powered locale-aware suggestions + hardcoded fallbacks
+// Steps 1–6: Profile entry with AI-powered suggestions
+//
+// Two-phase AI flow:
+//   Phase 1 (Test Connection) → locale-aware health conditions
+//   Phase 2 (Leave conditions step) → condition-aware suggestions for
+//           allergies, medications, dietary preferences, health goals
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useSettings } from '../hooks/useSettings';
@@ -10,7 +15,8 @@ import ProviderSetup from '../components/ProviderSetup';
 import ChipSelector from '../components/ChipSelector';
 import TagInput from '../components/TagInput';
 import {
-  generateOnboardingSuggestions,
+  generateConditionSuggestions,
+  generateContextualSuggestions,
   getFallbackSuggestions,
   type OnboardingSuggestions,
 } from '../services/onboarding-suggestions';
@@ -31,8 +37,10 @@ export default function Onboarding() {
 
   // AI suggestions state
   const [suggestions, setSuggestions] = useState<OnboardingSuggestions>(getFallbackSuggestions());
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const suggestionsRequested = useRef(false);
+  const [conditionsLoading, setConditionsLoading] = useState(false);   // Phase 1
+  const [contextualLoading, setContextualLoading] = useState(false);   // Phase 2
+  const conditionsRequested = useRef(false);    // Phase 1 guard
+  const lastContextConditions = useRef<string>('');  // Phase 2 dedup key
 
   // Profile state
   const [ageRange, setAgeRange] = useState(profile?.ageRange ?? '');
@@ -47,21 +55,50 @@ export default function Onboarding() {
   );
   const [healthGoals, setHealthGoals] = useState<string[]>(profile?.healthGoals ?? []);
 
-  const totalSteps = 7; // provider + 6 profile steps
+  const totalSteps = 8; // provider + 7 profile steps
 
-  // ---------- Fire AI suggestions after successful connection ----------
+  // ---------- Phase 1: Fire condition suggestions after successful connection ----------
   const handleConnectionResult = (ok: boolean) => {
-    if (ok && !suggestionsRequested.current) {
-      suggestionsRequested.current = true;
+    if (ok && !conditionsRequested.current) {
+      conditionsRequested.current = true;
       const prov = providers.find((p) => p.id === selectedProvider);
       if (!prov) return;
-      setSuggestionsLoading(true);
-      generateOnboardingSuggestions(prov, configDraft).then((result) => {
-        if (result) setSuggestions(result);
-        setSuggestionsLoading(false);
+      setConditionsLoading(true);
+      generateConditionSuggestions(prov, configDraft).then((result) => {
+        if (result) {
+          setSuggestions((prev) => ({ ...prev, conditions: result }));
+        }
+        setConditionsLoading(false);
       });
     }
   };
+
+  // ---------- Phase 2: Fire contextual suggestions when leaving conditions step ----------
+  const fireContextualSuggestions = useCallback(() => {
+    if (conditions.length === 0) return;          // nothing to contextualize
+    const key = [...conditions].sort().join('|'); // dedup key
+    if (key === lastContextConditions.current) return; // unchanged
+    lastContextConditions.current = key;
+
+    const prov = providers.find((p) => p.id === selectedProvider);
+    if (!prov) return;
+
+    setContextualLoading(true);
+    generateContextualSuggestions(prov, configDraft, conditions).then((result) => {
+      if (result) {
+        setSuggestions((prev) => ({
+          ...prev,
+          // Merge: keep any items the user already selected + new AI options
+          allergies: [...new Set([...allergies, ...result.allergies])],
+          medications: [...new Set([...medications, ...result.medications])],
+          dietaryPreferences: [...new Set([...dietaryPreferences, ...result.dietaryPreferences])],
+          healthGoals: [...new Set([...healthGoals, ...result.healthGoals])],
+        }));
+      }
+      setContextualLoading(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conditions, allergies, medications, dietaryPreferences, healthGoals, selectedProvider, configDraft, providers]);
 
   const handleFinish = async () => {
     await saveProfile({
@@ -108,20 +145,22 @@ export default function Onboarding() {
         onProviderChange={(id) => {
           setSelectedProvider(id);
           setConfigDraft({});
-          suggestionsRequested.current = false;
+          conditionsRequested.current = false;
+          lastContextConditions.current = '';
         }}
         config={configDraft}
         onConfigChange={(key, value) => {
           setConfigDraft((prev) => ({ ...prev, [key]: value }));
-          suggestionsRequested.current = false;
+          conditionsRequested.current = false;
+          lastContextConditions.current = '';
         }}
         onConnectionResult={handleConnectionResult}
       />
     </div>,
 
-    // Step 1: Basics
-    <div key="basics" className="space-y-4">
-      <h2 className="text-xl font-semibold">Basic Information</h2>
+    // Step 1: Age & Sex (buffer for Phase 1 condition suggestions)
+    <div key="age-sex" className="space-y-4">
+      <h2 className="text-xl font-semibold">About You</h2>
       <p className="text-surface-400 text-sm">Help us personalize your experience. All fields are optional.</p>
       <div className="space-y-3">
         <div>
@@ -152,24 +191,14 @@ export default function Onboarding() {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-surface-300 block mb-1">Height (cm)</label>
-            <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="170" className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500" />
-          </div>
-          <div>
-            <label className="text-sm text-surface-300 block mb-1">Weight (kg)</label>
-            <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500" />
-          </div>
-        </div>
       </div>
     </div>,
 
-    // Step 2: Conditions
+    // Step 2: Health Conditions (Phase 1 results should be ready)
     <div key="conditions" className="space-y-4">
       <h2 className="text-xl font-semibold">Health Conditions</h2>
-      <p className="text-surface-400 text-sm">Select any existing conditions or add your own.</p>
-      <ChipSelector options={suggestions.conditions} selected={conditions} onChange={setConditions} loading={suggestionsLoading} />
+      <p className="text-surface-400 text-sm">Select any existing conditions you manage.</p>
+      <ChipSelector options={suggestions.conditions} selected={conditions} onChange={setConditions} loading={conditionsLoading} />
       <TagInput
         tags={conditions.filter((c) => !suggestions.conditions.includes(c))}
         onChange={(custom) => setConditions([...conditions.filter((c) => suggestions.conditions.includes(c)), ...custom])}
@@ -177,11 +206,27 @@ export default function Onboarding() {
       />
     </div>,
 
-    // Step 3: Allergies
+    // Step 3: Height & Weight (buffer for Phase 2 contextual suggestions)
+    <div key="height-weight" className="space-y-4">
+      <h2 className="text-xl font-semibold">Body Measurements</h2>
+      <p className="text-surface-400 text-sm">Optional — helps with nutrition and fitness recommendations.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm text-surface-300 block mb-1">Height (cm)</label>
+          <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="170" className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500" />
+        </div>
+        <div>
+          <label className="text-sm text-surface-300 block mb-1">Weight (kg)</label>
+          <input type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500" />
+        </div>
+      </div>
+    </div>,
+
+    // Step 4: Allergies
     <div key="allergies" className="space-y-4">
       <h2 className="text-xl font-semibold">Allergies</h2>
       <p className="text-surface-400 text-sm">Select known allergies or add your own.</p>
-      <ChipSelector options={suggestions.allergies} selected={allergies} onChange={setAllergies} loading={suggestionsLoading} />
+      <ChipSelector options={suggestions.allergies} selected={allergies} onChange={setAllergies} loading={contextualLoading} />
       <TagInput
         tags={allergies.filter((a) => !suggestions.allergies.includes(a))}
         onChange={(custom) => setAllergies([...allergies.filter((a) => suggestions.allergies.includes(a)), ...custom])}
@@ -189,14 +234,13 @@ export default function Onboarding() {
       />
     </div>,
 
-    // Step 4: Medications
+    // Step 5: Medications
     <div key="medications" className="space-y-4">
       <h2 className="text-xl font-semibold">Medications</h2>
       <p className="text-surface-400 text-sm">List any medications you're currently taking.</p>
       {suggestions.medications.length > 0 && (
         <>
-          <p className="text-xs text-surface-500">Common medications in your region:</p>
-          <ChipSelector options={suggestions.medications} selected={medications} onChange={setMedications} loading={suggestionsLoading} />
+          <ChipSelector options={suggestions.medications} selected={medications} onChange={setMedications} loading={contextualLoading} />
         </>
       )}
       <TagInput
@@ -206,11 +250,11 @@ export default function Onboarding() {
       />
     </div>,
 
-    // Step 5: Diet
+    // Step 6: Diet
     <div key="diet" className="space-y-4">
       <h2 className="text-xl font-semibold">Dietary Preferences</h2>
       <p className="text-surface-400 text-sm">Select any dietary preferences you follow.</p>
-      <ChipSelector options={suggestions.dietaryPreferences} selected={dietaryPreferences} onChange={setDietaryPreferences} loading={suggestionsLoading} />
+      <ChipSelector options={suggestions.dietaryPreferences} selected={dietaryPreferences} onChange={setDietaryPreferences} loading={contextualLoading} />
       <TagInput
         tags={dietaryPreferences.filter((d) => !suggestions.dietaryPreferences.includes(d))}
         onChange={(custom) => setDietaryPreferences([...dietaryPreferences.filter((d) => suggestions.dietaryPreferences.includes(d)), ...custom])}
@@ -218,11 +262,11 @@ export default function Onboarding() {
       />
     </div>,
 
-    // Step 6: Goals
+    // Step 7: Goals
     <div key="goals" className="space-y-4">
       <h2 className="text-xl font-semibold">Health Goals</h2>
       <p className="text-surface-400 text-sm">What are you trying to achieve?</p>
-      <ChipSelector options={suggestions.healthGoals} selected={healthGoals} onChange={setHealthGoals} loading={suggestionsLoading} />
+      <ChipSelector options={suggestions.healthGoals} selected={healthGoals} onChange={setHealthGoals} loading={contextualLoading} />
       <TagInput
         tags={healthGoals.filter((g) => !suggestions.healthGoals.includes(g))}
         onChange={(custom) => setHealthGoals([...healthGoals.filter((g) => suggestions.healthGoals.includes(g)), ...custom])}
@@ -271,7 +315,11 @@ export default function Onboarding() {
         )}
         {step < totalSteps - 1 ? (
           <button
-            onClick={() => setStep(step + 1)}
+            onClick={() => {
+              // Fire Phase 2 when leaving the conditions step (step 2)
+              if (step === 2) fireContextualSuggestions();
+              setStep(step + 1);
+            }}
             className="flex-1 bg-primary-600 hover:bg-primary-500 text-white py-2.5 rounded-lg text-sm transition-colors"
           >
             Next

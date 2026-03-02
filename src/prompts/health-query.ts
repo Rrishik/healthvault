@@ -26,7 +26,7 @@ Respond with a JSON object matching this exact schema:
 }
 
 Rules:
-- "answer" is required and should be comprehensive but concise.
+- "answer" is required and should be comprehensive but concise. Keep it under 800 tokens.
 - "suggestedProfileUpdates" is optional. Only include it if the user's question EXPLICITLY mentions a condition, allergy, or medication not already in their profile.
 - Do NOT diagnose. Suggest consulting a healthcare provider when appropriate.
 - Personalize your answer based on the user's profile.`;
