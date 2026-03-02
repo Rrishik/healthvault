@@ -125,7 +125,7 @@ export default function Scanner() {
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-surface-100">Food Scanner</h2>
       <p className="text-surface-400 text-sm">
-        Enter ingredients or snap a photo of a food label to check safety.
+        Enter ingredients or snap a photo of a food label to check if they are safe for you.
       </p>
 
       {/* Mode selector */}
@@ -133,11 +133,7 @@ export default function Scanner() {
         {modeButtons.map((m) => (
           <button
             key={m.mode}
-            onClick={() => {
-              setMode(m.mode);
-              if (m.mode === 'upload') fileInputRef.current?.click();
-              if (m.mode === 'camera') cameraInputRef.current?.click();
-            }}
+            onClick={() => setMode(m.mode)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm transition-colors ${
               mode === m.mode
                 ? 'bg-primary-600 text-white'

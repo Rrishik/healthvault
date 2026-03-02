@@ -59,7 +59,7 @@ export default function Dashboard() {
           <div className="text-2xl mb-2">📷</div>
           <h3 className="text-sm font-medium text-surface-100">Scan Food</h3>
           <p className="text-xs text-surface-400 mt-0.5">
-            Check ingredients safety
+            Checks if the ingredients are safe for you
           </p>
         </Link>
         <Link
