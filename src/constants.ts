@@ -8,8 +8,8 @@ export const verdictEmoji = { safe: '✅', caution: '⚠️', avoid: '🚫' } as
 /** Default temperature for all LLM API calls */
 export const DEFAULT_TEMPERATURE = 0.3;
 
-/** Timeout (ms) for onboarding AI suggestion requests */
-export const AI_REQUEST_TIMEOUT_MS = 15_000;
+/** Timeout (ms) for AI requests (onboarding suggestions, etc.) */
+export const AI_REQUEST_TIMEOUT_MS = 30_000;
 
 // ---------- Chat ----------
 
@@ -60,4 +60,5 @@ export const LOG_PREFIX = '[HealthVault]';
 export const LS_KEYS = {
   NEW_CHAT_TIP_DISMISSED: 'hv_newchat_tip_dismissed',
   CONFIG_SALT: 'hv_config_salt',
+  COMMUNITY_WARNING_DISMISSED: 'hv_community_warning_dismissed',
 } as const;

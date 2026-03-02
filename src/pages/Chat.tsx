@@ -1,13 +1,17 @@
 // HealthVault — Chat page (conversational health Q&A)
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useAppContext } from '../context/AppContext';
 import { pickRandomStarters } from '../services/starters';
-import { getActiveConversation, saveConversation, startNewConversation } from '../services/db';
+import { getActiveConversation, getConversationById, saveConversation, startNewConversation } from '../services/db';
+import { assembleContext } from '../services/context-assembler';
+import { buildHealthQueryPrompt } from '../prompts/health-query';
 import ChatBubble from '../components/ChatBubble';
 import ProfileUpdatePrompt from '../components/ProfileUpdatePrompt';
+import PromptPreviewModal from '../components/PromptPreviewModal';
 import type { Message, Conversation } from '../types';
 import type { HealthQueryResponse } from '../adapters/types';
 import {
@@ -57,6 +61,7 @@ export default function Chat() {
   const { askHealthQuery, loading, error } = useAIProvider();
   const { addToList } = useHealthProfile();
   const { profile, settings } = useAppContext();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Use AI-generated starters if available, otherwise fall back to profile-based ones
   const starters = useMemo(() => {
@@ -69,6 +74,8 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [pendingUpdate, setPendingUpdate] = useState<HealthQueryResponse['suggestedProfileUpdates'] | null>(null);
   const [updateExplanation, setUpdateExplanation] = useState('');
+  const [promptPreview, setPromptPreview] = useState<string | null>(null);
+  const pendingSendRef = useRef<(() => Promise<void>) | null>(null);
   const [tipDismissed, setTipDismissed] = useState(
     () => localStorage.getItem(LS_KEYS.NEW_CHAT_TIP_DISMISSED) === '1',
   );
@@ -80,14 +87,33 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeConvRef = useRef<Conversation | null>(null);
 
-  // Load the most recent conversation on mount
+  // Load a specific conversation (from URL param) or the most recent
   useEffect(() => {
-    getActiveConversation().then((conv) => {
-      if (conv && conv.messages.length > 0) {
-        activeConvRef.current = conv;
-        setMessages(conv.messages);
-      }
-    });
+    const convId = searchParams.get('conv');
+    const isNew = searchParams.get('new');
+    if (isNew) {
+      // Start fresh — don't load any previous conversation
+      activeConvRef.current = null;
+      setMessages([]);
+      setSearchParams({}, { replace: true });
+    } else if (convId) {
+      getConversationById(Number(convId)).then((conv) => {
+        if (conv) {
+          activeConvRef.current = conv;
+          setMessages(conv.messages);
+        }
+      });
+      // Clear the search param so subsequent new-chats don't reload it
+      setSearchParams({}, { replace: true });
+    } else {
+      getActiveConversation().then((conv) => {
+        if (conv && conv.messages.length > 0) {
+          activeConvRef.current = conv;
+          setMessages(conv.messages);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist conversation to IndexedDB
@@ -118,10 +144,7 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const handleSend = async () => {
-    const query = input.trim();
-    if (!query || loading) return;
-
+  const executeSend = async (query: string) => {
     const userMsg: Message = {
       role: 'user',
       content: query,
@@ -160,6 +183,26 @@ export default function Chat() {
           );
         }
       }
+    }
+  };
+
+  const handleSend = async () => {
+    const query = input.trim();
+    if (!query || loading) return;
+
+    if (settings?.showPromptBeforeSending) {
+      // Build prompt preview without sending
+      const context = await assembleContext();
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const preview = buildHealthQueryPrompt({
+        query,
+        conversationHistory: history,
+        context,
+      }).replace(/Respond with a JSON object[\s\S]*$/, '').trimEnd();
+      pendingSendRef.current = () => executeSend(query);
+      setPromptPreview(preview);
+    } else {
+      await executeSend(query);
     }
   };
 
@@ -294,6 +337,22 @@ export default function Chat() {
           </svg>
         </button>
       </div>
+
+      {/* Prompt preview modal */}
+      {promptPreview && (
+        <PromptPreviewModal
+          prompt={promptPreview}
+          onConfirm={() => {
+            setPromptPreview(null);
+            pendingSendRef.current?.();
+            pendingSendRef.current = null;
+          }}
+          onCancel={() => {
+            setPromptPreview(null);
+            pendingSendRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

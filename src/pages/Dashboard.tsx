@@ -3,21 +3,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { getRecentScans, getRecentInteractions } from '../services/db';
-import type { FoodScanRecord, InteractionLog } from '../types';
+import { getRecentScans, getRecentConversations } from '../services/db';
+import type { FoodScanRecord, Conversation } from '../types';
 import { verdictEmoji, DISPLAY_ITEMS_COUNT } from '../constants';
 
 export default function Dashboard() {
   const { profile, provider } = useAppContext();
   const [recentScans, setRecentScans] = useState<FoodScanRecord[]>([]);
-  const [recentChats, setRecentChats] = useState<InteractionLog[]>([]);
+  const [recentConvs, setRecentConvs] = useState<Conversation[]>([]);
 
   useEffect(() => {
     const loadData = () => {
-      Promise.all([getRecentScans(5), getRecentInteractions(5)]).then(
-        ([scans, chats]) => {
+      Promise.all([getRecentScans(5), getRecentConversations(5)]).then(
+        ([scans, convs]) => {
           setRecentScans(scans);
-          setRecentChats(chats.filter((c) => c.type === 'health-query'));
+          setRecentConvs(convs.filter((c) => c.messages.length > 0));
         },
       );
     };
@@ -63,12 +63,12 @@ export default function Dashboard() {
           </p>
         </Link>
         <Link
-          to="/chat"
+          to="/chat?new=1"
           className="bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-xl p-4 transition-colors"
         >
           <div className="text-2xl mb-2">💬</div>
           <h3 className="text-sm font-medium text-surface-100">
-            Health Chat
+            New Health Chat
           </h3>
           <p className="text-xs text-surface-400 mt-0.5">
             Ask health questions
@@ -164,12 +164,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Recent chats */}
-      {recentChats.length > 0 && (
+      {/* Recent conversations */}
+      {recentConvs.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-surface-100">
-              Recent Questions
+              Recent Conversations
             </h3>
             <Link
               to="/history"
@@ -179,17 +179,26 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            {recentChats.slice(0, DISPLAY_ITEMS_COUNT).map((chat) => (
+            {recentConvs.slice(0, DISPLAY_ITEMS_COUNT).map((conv) => (
               <div
-                key={chat.id}
-                className="bg-surface-800 border border-surface-700 rounded-lg p-3"
+                key={conv.id}
+                className="bg-surface-800 border border-surface-700 rounded-lg p-3 flex items-center gap-3"
               >
-                <p className="text-sm text-surface-200 truncate">
-                  {chat.query}
-                </p>
-                <p className="text-xs text-surface-500">
-                  {new Date(chat.timestamp).toLocaleDateString()}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-surface-200 truncate">
+                    {conv.title}
+                  </p>
+                  <p className="text-xs text-surface-500">
+                    {new Date(conv.updatedAt).toLocaleDateString()} ·{' '}
+                    {conv.messages.length} message{conv.messages.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Link
+                  to={`/chat?conv=${conv.id}`}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
+                >
+                  Resume
+                </Link>
               </div>
             ))}
           </div>
@@ -197,7 +206,7 @@ export default function Dashboard() {
       )}
 
       {/* Empty state */}
-      {recentScans.length === 0 && recentChats.length === 0 && (
+      {recentScans.length === 0 && recentConvs.length === 0 && (
         <div className="text-center py-8">
           <p className="text-surface-400 text-sm">
             No activity yet. Try scanning a food label or asking a health

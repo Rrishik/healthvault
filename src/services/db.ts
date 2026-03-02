@@ -163,3 +163,15 @@ export async function startNewConversation(): Promise<Conversation> {
   } as Conversation);
   return { id, title: DEFAULT_CHAT_TITLE, messages: [], createdAt: now, updatedAt: now };
 }
+
+export async function getConversationById(
+  id: number,
+): Promise<Conversation | undefined> {
+  return db.conversations.get(id);
+}
+
+export async function getRecentConversations(
+  limit: number,
+): Promise<Conversation[]> {
+  return db.conversations.orderBy('updatedAt').reverse().limit(limit).toArray();
+}

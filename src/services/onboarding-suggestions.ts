@@ -48,7 +48,10 @@ const FALLBACK_ALLERGIES: string[] = [
 ];
 
 const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
-  medications: [],
+  medications: [
+    'Metformin', 'Amlodipine', 'Atorvastatin', 'Omeprazole', 'Levothyroxine',
+    'Aspirin', 'Ibuprofen', 'Paracetamol', 'Cetirizine', 'Montelukast',
+  ],
   dietaryPreferences: [
     'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Halal', 'Kosher',
     'Gluten-Free', 'Dairy-Free', 'Low-Sodium', 'Low-Sugar',

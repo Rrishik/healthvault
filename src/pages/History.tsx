@@ -1,27 +1,28 @@
 // HealthVault — History page
 
 import { useEffect, useState } from 'react';
-import { getRecentInteractions, getRecentScans } from '../services/db';
-import type { InteractionLog, FoodScanRecord } from '../types';
+import { Link } from 'react-router-dom';
+import { getRecentScans, getRecentConversations } from '../services/db';
+import type { FoodScanRecord, Conversation } from '../types';
 import VerdictCard from '../components/VerdictCard';
 import { verdictEmoji } from '../constants';
 
-type Tab = 'scans' | 'queries';
+type Tab = 'scans' | 'chats';
 
 export default function History() {
   const [tab, setTab] = useState<Tab>('scans');
   const [scans, setScans] = useState<FoodScanRecord[]>([]);
-  const [queries, setQueries] = useState<InteractionLog[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [expandedScan, setExpandedScan] = useState<number | null>(null);
-  const [expandedQuery, setExpandedQuery] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([getRecentScans(50), getRecentInteractions(50)]).then(
-      ([s, q]) => {
-        setScans(s);
-        setQueries(q.filter((i) => i.type === 'health-query'));
-      },
-    );
+    Promise.all([
+      getRecentScans(50),
+      getRecentConversations(50),
+    ]).then(([s, c]) => {
+      setScans(s);
+      setConversations(c.filter((conv) => conv.messages.length > 0));
+    });
   }, []);
 
   return (
@@ -38,17 +39,17 @@ export default function History() {
               : 'text-surface-400 hover:text-surface-200'
           }`}
         >
-          Food Scans ({scans.length})
+          Scans ({scans.length})
         </button>
         <button
-          onClick={() => setTab('queries')}
+          onClick={() => setTab('chats')}
           className={`flex-1 py-2 rounded-md text-sm transition-colors ${
-            tab === 'queries'
+            tab === 'chats'
               ? 'bg-surface-700 text-surface-100'
               : 'text-surface-400 hover:text-surface-200'
           }`}
         >
-          Questions ({queries.length})
+          Chats ({conversations.length})
         </button>
       </div>
 
@@ -99,45 +100,36 @@ export default function History() {
         </div>
       )}
 
-      {/* Queries tab */}
-      {tab === 'queries' && (
+      {/* Chats tab */}
+      {tab === 'chats' && (
         <div className="space-y-3">
-          {queries.length === 0 && (
+          {conversations.length === 0 && (
             <p className="text-center text-surface-400 text-sm py-8">
-              No health questions yet.
+              No conversations yet.
             </p>
           )}
-          {queries.map((q) => {
-            let parsedAnswer = '';
-            try {
-              const parsed = JSON.parse(q.response);
-              parsedAnswer = parsed.answer ?? q.response;
-            } catch {
-              parsedAnswer = q.response;
-            }
-            return (
-              <div key={q.id}>
-                <button
-                  onClick={() =>
-                    setExpandedQuery(expandedQuery === q.id ? null : (q.id ?? null))
-                  }
-                  className="w-full bg-surface-800 border border-surface-700 rounded-lg p-3 hover:bg-surface-700/50 transition-colors text-left"
-                >
-                  <p className="text-sm text-surface-200 truncate">{q.query}</p>
-                  <p className="text-xs text-surface-500">
-                    {new Date(q.timestamp).toLocaleString()} · {q.providerId}
-                  </p>
-                </button>
-                {expandedQuery === q.id && (
-                  <div className="mt-2 bg-surface-800/50 border border-surface-700 rounded-lg p-3">
-                    <p className="text-sm text-surface-300 whitespace-pre-wrap">
-                      {parsedAnswer}
-                    </p>
-                  </div>
-                )}
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className="bg-surface-800 border border-surface-700 rounded-lg p-3 flex items-center gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-surface-200 truncate">
+                  {conv.title}
+                </p>
+                <p className="text-xs text-surface-500">
+                  {new Date(conv.updatedAt).toLocaleString()} ·{' '}
+                  {conv.messages.length} message{conv.messages.length !== 1 ? 's' : ''}
+                </p>
               </div>
-            );
-          })}
+              <Link
+                to={`/chat?conv=${conv.id}`}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
+              >
+                Resume
+              </Link>
+            </div>
+          ))}
         </div>
       )}
     </div>

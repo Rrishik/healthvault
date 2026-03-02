@@ -3,8 +3,12 @@
 
 import { useState, useRef } from 'react';
 import { useAIProvider } from '../hooks/useAIProvider';
+import { useAppContext } from '../context/AppContext';
+import { assembleContext } from '../services/context-assembler';
+import { buildFoodAnalysisPrompt } from '../prompts/food-analysis';
 import { extractIngredients } from '../services/ocr';
 import VerdictCard from '../components/VerdictCard';
+import PromptPreviewModal from '../components/PromptPreviewModal';
 import type { FoodVerdict } from '../types';
 import { IMAGE_MAX_DIM, IMAGE_QUALITY } from '../constants';
 
@@ -37,12 +41,20 @@ function compressImage(dataUrl: string, maxDim = IMAGE_MAX_DIM, quality = IMAGE_
 
 export default function Scanner() {
   const { analyzeFood, analyzeImage, loading, error } = useAIProvider();
+  const { settings } = useAppContext();
   const [mode, setMode] = useState<InputMode>('manual');
   const [ingredients, setIngredients] = useState('');
   const [verdict, setVerdict] = useState<FoodVerdict | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [promptPreview, setPromptPreview] = useState<string | null>(null);
+  const pendingSendRef = useRef<(() => Promise<void>) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const executeManualSubmit = async (list: string[]) => {
+    const result = await analyzeFood(list);
+    if (result) setVerdict(result);
+  };
 
   const handleManualSubmit = async () => {
     if (!ingredients.trim()) return;
@@ -50,8 +62,16 @@ export default function Scanner() {
       .split(/[,\n;]+/)
       .map((s) => s.trim())
       .filter(Boolean);
-    const result = await analyzeFood(list);
-    if (result) setVerdict(result);
+
+    if (settings?.showPromptBeforeSending) {
+      const context = await assembleContext();
+      const preview = buildFoodAnalysisPrompt({ ingredients: list, context })
+        .replace(/Respond with a JSON object[\s\S]*$/, '').trimEnd();
+      pendingSendRef.current = () => executeManualSubmit(list);
+      setPromptPreview(preview);
+    } else {
+      await executeManualSubmit(list);
+    }
   };
 
   const handleFile = async (file: File) => {
@@ -204,6 +224,22 @@ export default function Scanner() {
 
       {/* Result */}
       {verdict && !loading && <VerdictCard verdict={verdict} />}
+
+      {/* Prompt preview modal */}
+      {promptPreview && (
+        <PromptPreviewModal
+          prompt={promptPreview}
+          onConfirm={() => {
+            setPromptPreview(null);
+            pendingSendRef.current?.();
+            pendingSendRef.current = null;
+          }}
+          onCancel={() => {
+            setPromptPreview(null);
+            pendingSendRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

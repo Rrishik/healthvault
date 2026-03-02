@@ -289,12 +289,6 @@ export default function Onboarding() {
             <span className="text-xs text-surface-400">
               Step {step + 1} of {totalSteps}
             </span>
-            <button
-              onClick={handleFinish}
-              className="text-xs text-primary-400 hover:text-primary-300"
-            >
-              Skip all
-            </button>
           </div>
           <div className="w-full bg-surface-800 rounded-full h-1.5">
             <div
