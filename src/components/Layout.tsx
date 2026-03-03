@@ -15,7 +15,7 @@ const navItems = [
 export default function Layout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col min-h-screen bg-surface-950">
+    <div className="flex flex-col h-screen bg-surface-950">
       {/* Header */}
       <header className="bg-surface-900 border-b border-surface-700 px-4 py-3 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-bold text-sm">
