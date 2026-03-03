@@ -22,9 +22,14 @@ const statusBgLight = {
 
 interface VerdictCardProps {
   verdict: FoodVerdict;
+  /** Show full nutrition %DV panel; when false, show a hint to upload the label */
+  showNutritionDV?: boolean;
 }
 
-export default function VerdictCard({ verdict }: VerdictCardProps) {
+export default function VerdictCard({
+  verdict,
+  showNutritionDV = true,
+}: VerdictCardProps) {
   const { t } = useTranslation();
   const [showNutrition, setShowNutrition] = useState(false);
 
@@ -53,8 +58,8 @@ export default function VerdictCard({ verdict }: VerdictCardProps) {
         </div>
       )}
 
-      {/* Nutrition facts — collapsible */}
-      {nutrientsWithDV.length > 0 && (
+      {/* Nutrition facts — collapsible (only when showNutritionDV) */}
+      {showNutritionDV && nutrientsWithDV.length > 0 && (
         <div className="border border-surface-700/50 rounded-lg overflow-hidden">
           <button
             onClick={() => setShowNutrition((v) => !v)}
@@ -87,6 +92,15 @@ export default function VerdictCard({ verdict }: VerdictCardProps) {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Hint to upload ingredients list when nutrition %DV is not available */}
+      {!showNutritionDV && (
+        <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-surface-400">
+            📊 {t('nutrition.uploadHint')}
+          </p>
         </div>
       )}
 

@@ -280,7 +280,10 @@ export default function Scanner() {
       {/* Result */}
       {verdict && !loading && !notFood && (
         <>
-          <VerdictCard verdict={verdict} />
+          <VerdictCard
+            verdict={verdict}
+            showNutritionDV={mode === 'manual' || verdict.imageType === 'label'}
+          />
           <button
             onClick={async () => {
               const conv = await startNewConversation();

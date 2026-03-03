@@ -107,7 +107,14 @@ export default function History() {
               </button>
               {expandedScan === scan.id && (
                 <div className="mt-2 space-y-2">
-                  <VerdictCard verdict={scan.verdict} />
+                  <VerdictCard
+                    verdict={scan.verdict}
+                    showNutritionDV={
+                      scan.source === 'manual' ||
+                      scan.source === 'ocr' ||
+                      scan.verdict.imageType === 'label'
+                    }
+                  />
                   <button
                     onClick={async () => {
                       const conv = await startNewConversation();
