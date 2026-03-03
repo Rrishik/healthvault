@@ -266,6 +266,10 @@ async function _generatePhase1(
     };
   } catch (err) {
     console.warn(`${LOG_PREFIX} Failed to generate Phase 1 suggestions`, err);
+    // Re-throw auth errors so the connection test shows failure
+    if (err instanceof Error && /40[13]/.test(err.message)) {
+      throw err;
+    }
     return null;
   }
 }
