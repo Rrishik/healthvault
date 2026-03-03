@@ -23,7 +23,27 @@ Respond with a JSON object matching this exact schema:
       "reason": "Why this ingredient is flagged or safe"
     }
   ],
-  "alternatives": ["optional array of safer alternative suggestions"]
+  "alternatives": ["optional array of safer alternative suggestions"],
+  "nutrition": {
+    "servingSize": "estimated serving size, e.g. '1 cup (240g)' or '100g'",
+    "nutrients": [
+      { "nutrient": "Calories", "amount": 0, "unit": "kcal" },
+      { "nutrient": "Total Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Saturated Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Trans Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Cholesterol", "amount": 0, "unit": "mg" },
+      { "nutrient": "Sodium", "amount": 0, "unit": "mg" },
+      { "nutrient": "Total Carbohydrate", "amount": 0, "unit": "g" },
+      { "nutrient": "Dietary Fiber", "amount": 0, "unit": "g" },
+      { "nutrient": "Total Sugars", "amount": 0, "unit": "g" },
+      { "nutrient": "Added Sugars", "amount": 0, "unit": "g" },
+      { "nutrient": "Protein", "amount": 0, "unit": "g" },
+      { "nutrient": "Vitamin D", "amount": 0, "unit": "mcg" },
+      { "nutrient": "Calcium", "amount": 0, "unit": "mg" },
+      { "nutrient": "Iron", "amount": 0, "unit": "mg" },
+      { "nutrient": "Potassium", "amount": 0, "unit": "mg" }
+    ]
+  }
 }
 
 Rules:
@@ -31,5 +51,6 @@ Rules:
 - "caution" if an ingredient may worsen a condition or conflict with dietary preferences.
 - "safe" if no concerns found.
 - Include ALL ingredients in the details array.
-- Keep reasons concise (1-2 sentences).`;
+- Keep reasons concise (1-2 sentences).
+- In the "nutrition" object, estimate the nutrient amounts per serving based on the ingredients. Use your best knowledge of typical nutritional content. Replace the 0 placeholders with your estimates. You may add additional nutrients (e.g. Vitamin A, Vitamin C, Zinc) if relevant.`;
 }

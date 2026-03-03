@@ -62,6 +62,15 @@ export interface FoodVerdict {
   imageType?: 'label' | 'food_item' | 'not_food';
   /** Attribution for where ingredients were sourced (e.g. general knowledge) */
   ingredientSource?: string;
+  /** Estimated nutrition per serving — AI-provided, %DV computed client-side */
+  nutrition?: {
+    servingSize: string;
+    nutrients: {
+      nutrient: string;
+      amount: number;
+      unit: string;
+    }[];
+  };
 }
 
 export interface VerdictDetail {

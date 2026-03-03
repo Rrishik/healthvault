@@ -43,7 +43,27 @@ STEP 2 — Respond with a JSON object matching this exact schema:
     }
   ],
   "alternatives": ["optional safer alternatives"],
-  "ingredientSource": "Only for food_item — brief attribution of where the ingredients list came from"
+  "ingredientSource": "Only for food_item — brief attribution of where the ingredients list came from",
+  "nutrition": {
+    "servingSize": "serving size from the label, or estimated serving size for food items, e.g. '1 cup (240g)'",
+    "nutrients": [
+      { "nutrient": "Calories", "amount": 0, "unit": "kcal" },
+      { "nutrient": "Total Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Saturated Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Trans Fat", "amount": 0, "unit": "g" },
+      { "nutrient": "Cholesterol", "amount": 0, "unit": "mg" },
+      { "nutrient": "Sodium", "amount": 0, "unit": "mg" },
+      { "nutrient": "Total Carbohydrate", "amount": 0, "unit": "g" },
+      { "nutrient": "Dietary Fiber", "amount": 0, "unit": "g" },
+      { "nutrient": "Total Sugars", "amount": 0, "unit": "g" },
+      { "nutrient": "Added Sugars", "amount": 0, "unit": "g" },
+      { "nutrient": "Protein", "amount": 0, "unit": "g" },
+      { "nutrient": "Vitamin D", "amount": 0, "unit": "mcg" },
+      { "nutrient": "Calcium", "amount": 0, "unit": "mg" },
+      { "nutrient": "Iron", "amount": 0, "unit": "mg" },
+      { "nutrient": "Potassium", "amount": 0, "unit": "mg" }
+    ]
+  }
 }
 
 Rules:
@@ -53,5 +73,7 @@ Rules:
 - Include ALL identified ingredients in the details array.
 - Keep reasons concise (1-2 sentences).
 - For food_item images, always include the "ingredientSource" field.
-- For label images, omit the "ingredientSource" field.`;
+- For label images, omit the "ingredientSource" field.
+- In the "nutrition" object: for labels, read the values directly from the label. For food items, estimate based on general knowledge. Replace the 0 placeholders with actual/estimated values. You may add additional nutrients if visible on the label or relevant.
+- For not_food images, omit the "nutrition" object.`;
 }

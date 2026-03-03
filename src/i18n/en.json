@@ -222,6 +222,11 @@
   "tag": {
     "add": "Add"
   },
+  "nutrition": {
+    "title": "Nutrition Facts",
+    "dvFootnote": "% Daily Value (DV) based on a 2,000-calorie diet (FDA 2020).",
+    "source": "Nutrient amounts are AI-estimated. %DV calculated from FDA Daily Reference Values (21 CFR 101.36). Not a substitute for actual nutrition labels."
+  },
   "nav": {
     "home": "Home",
     "scan": "Scan",

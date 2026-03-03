@@ -79,10 +79,7 @@ export default function Onboarding() {
     conditionsRequested.current = true;
     setConditionsLoading(true);
     try {
-      const result = await generatePhase1Suggestions(
-        prov,
-        configDraft,
-      );
+      const result = await generatePhase1Suggestions(prov, configDraft);
       if (result) {
         setSuggestions((prev) => ({
           ...prev,
@@ -97,11 +94,7 @@ export default function Onboarding() {
     } finally {
       setConditionsLoading(false);
     }
-  }, [
-    selectedProvider,
-    providers,
-    configDraft,
-  ]);
+  }, [selectedProvider, providers, configDraft]);
 
   // ---------- Phase 2: Fire contextual suggestions when leaving conditions step ----------
   const fireContextualSuggestions = useCallback(() => {

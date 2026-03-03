@@ -113,10 +113,8 @@ export default function History() {
                       const conv = await startNewConversation();
                       const now = Date.now();
                       const ingredientList =
-                        scan.ingredients.join(', ') ||
-                        'scanned food label';
-                      conv.title =
-                        `Scan: ${ingredientList}`.slice(0, 60);
+                        scan.ingredients.join(', ') || 'scanned food label';
+                      conv.title = `Scan: ${ingredientList}`.slice(0, 60);
                       conv.messages = [
                         {
                           role: 'user',
