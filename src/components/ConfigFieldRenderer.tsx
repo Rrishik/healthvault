@@ -25,16 +25,22 @@ export default function ConfigFieldRenderer({
         <div key={field.key}>
           {field.type === 'info' ? (
             <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-lg p-3">
-              <p className="text-xs text-yellow-300 font-medium">{field.label}</p>
+              <p className="text-xs text-yellow-300 font-medium">
+                {field.label}
+              </p>
               {field.placeholder && (
-                <p className="text-xs text-yellow-200/70 mt-1">{field.placeholder}</p>
+                <p className="text-xs text-yellow-200/70 mt-1">
+                  {field.placeholder}
+                </p>
               )}
             </div>
           ) : (
             <>
               <label className={`${labelClassName} block mb-1`}>
                 {field.label}
-                {field.required && <span className="text-danger-500 ml-0.5">*</span>}
+                {field.required && (
+                  <span className="text-danger-500 ml-0.5">*</span>
+                )}
               </label>
               {field.type === 'select' ? (
                 <select

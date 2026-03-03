@@ -14,7 +14,7 @@ import { DEFAULT_TEMPERATURE } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
-import { SYSTEM_PROMPT } from '../../prompts/system';
+import { getSystemPrompt } from '../../prompts/system';
 
 const ANTHROPIC_MODELS = [
   { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022' },
@@ -116,7 +116,7 @@ const anthropicProvider: AIProvider = {
     const raw = await createMessage(
       [{ role: 'user', content: prompt }],
       config,
-      SYSTEM_PROMPT +
+      getSystemPrompt() +
         '\n\nIMPORTANT: Respond ONLY with valid JSON matching the FoodVerdict schema.',
     );
     return safeParseJSON<FoodVerdict>(raw);
@@ -134,7 +134,7 @@ const anthropicProvider: AIProvider = {
     const raw = await createMessage(
       messages,
       config,
-      SYSTEM_PROMPT +
+      getSystemPrompt() +
         '\n\nIMPORTANT: Respond ONLY with valid JSON matching the HealthQueryResponse schema.',
     );
     return safeParseJSON<HealthQueryResponse>(raw);
@@ -160,7 +160,7 @@ const anthropicProvider: AIProvider = {
         },
       ],
       config,
-      SYSTEM_PROMPT +
+      getSystemPrompt() +
         '\n\nIMPORTANT: Respond ONLY with valid JSON matching the FoodVerdict schema.',
     );
     return safeParseJSON<FoodVerdict>(raw);

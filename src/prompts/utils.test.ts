@@ -51,9 +51,7 @@ describe('formatProfile', () => {
   });
 
   it('includes health goals', () => {
-    const result = formatProfile(
-      makeContext({ healthGoals: ['Lose Weight'] }),
-    );
+    const result = formatProfile(makeContext({ healthGoals: ['Lose Weight'] }));
     expect(result).toContain('Goals: Lose Weight');
   });
 

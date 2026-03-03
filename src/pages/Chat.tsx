@@ -2,11 +2,17 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useAppContext } from '../context/AppContext';
 import { pickRandomStarters } from '../services/starters';
-import { getActiveConversation, getConversationById, saveConversation, startNewConversation } from '../services/db';
+import {
+  getActiveConversation,
+  getConversationById,
+  saveConversation,
+  startNewConversation,
+} from '../services/db';
 import { assembleContext } from '../services/context-assembler';
 import { buildHealthQueryPrompt } from '../prompts/health-query';
 import ChatBubble from '../components/ChatBubble';
@@ -23,31 +29,42 @@ import {
   LS_KEYS,
 } from '../constants';
 
-function buildStarters(profile?: { conditions?: string[]; allergies?: string[]; medications?: string[]; dietaryPreferences?: string[] } | null): string[] {
+function buildStarters(
+  profile:
+    | {
+        conditions?: string[];
+        allergies?: string[];
+        medications?: string[];
+        dietaryPreferences?: string[];
+      }
+    | null
+    | undefined,
+  t: (key: string, opts?: Record<string, string>) => string,
+): string[] {
   const starters: string[] = [];
 
   if (profile?.medications?.length) {
     const med = profile.medications[0];
-    starters.push(`Any food interactions with ${med}?`);
+    starters.push(t('chat.starters.foodInteractions', { med }));
   }
   if (profile?.allergies?.length) {
     const allergy = profile.allergies[0];
-    starters.push(`What ingredients should I watch out for with my ${allergy} allergy?`);
+    starters.push(t('chat.starters.allergyWatch', { allergy }));
   }
   if (profile?.conditions?.length) {
     const condition = profile.conditions[0];
-    starters.push(`What foods help with ${condition}?`);
+    starters.push(t('chat.starters.foodsHelp', { condition }));
   }
   if (profile?.dietaryPreferences?.length) {
     const pref = profile.dietaryPreferences[0];
-    starters.push(`Good ${pref} meal ideas for me?`);
+    starters.push(t('chat.starters.mealIdeas', { pref }));
   }
 
   // Fill remaining slots with generic starters
   const fallbacks = [
-    'Is ibuprofen safe for me?',
-    'What foods help lower cholesterol?',
-    'Can I eat dairy with my condition?',
+    t('chat.starters.ibuprofen'),
+    t('chat.starters.cholesterol'),
+    t('chat.starters.dairy'),
   ];
   for (const f of fallbacks) {
     if (starters.length >= DISPLAY_ITEMS_COUNT) break;
@@ -58,6 +75,7 @@ function buildStarters(profile?: { conditions?: string[]; allergies?: string[]; 
 }
 
 export default function Chat() {
+  const { t } = useTranslation();
   const { askHealthQuery, loading, error } = useAIProvider();
   const { addToList } = useHealthProfile();
   const { profile, settings } = useAppContext();
@@ -68,11 +86,13 @@ export default function Chat() {
     if (settings?.chatStarters && settings.chatStarters.length > 0) {
       return pickRandomStarters(settings.chatStarters, DISPLAY_ITEMS_COUNT);
     }
-    return buildStarters(profile);
-  }, [settings?.chatStarters, profile]);
+    return buildStarters(profile, t);
+  }, [settings?.chatStarters, profile, t]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [pendingUpdate, setPendingUpdate] = useState<HealthQueryResponse['suggestedProfileUpdates'] | null>(null);
+  const [pendingUpdate, setPendingUpdate] = useState<
+    HealthQueryResponse['suggestedProfileUpdates'] | null
+  >(null);
   const [updateExplanation, setUpdateExplanation] = useState('');
   const [promptPreview, setPromptPreview] = useState<string | null>(null);
   const pendingSendRef = useRef<(() => Promise<void>) | null>(null);
@@ -124,7 +144,8 @@ export default function Chat() {
       await saveConversation(conv);
     } else {
       // First message — create a new conversation
-      const title = msgs[0]?.content.slice(0, CHAT_TITLE_MAX_LENGTH) || DEFAULT_CHAT_TITLE;
+      const title =
+        msgs[0]?.content.slice(0, CHAT_TITLE_MAX_LENGTH) || DEFAULT_CHAT_TITLE;
       const newConv = await startNewConversation();
       newConv.title = title;
       newConv.messages = msgs;
@@ -178,9 +199,7 @@ export default function Chat() {
           (u.medications?.length ?? 0) > 0;
         if (hasAny) {
           setPendingUpdate(u);
-          setUpdateExplanation(
-            'Based on your conversation, new health information was detected.',
-          );
+          setUpdateExplanation(t('chat.profileUpdateDetected'));
         }
       }
     }
@@ -193,12 +212,17 @@ export default function Chat() {
     if (settings?.showPromptBeforeSending) {
       // Build prompt preview without sending
       const context = await assembleContext();
-      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const history = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
       const preview = buildHealthQueryPrompt({
         query,
         conversationHistory: history,
         context,
-      }).replace(/Respond with a JSON object[\s\S]*$/, '').trimEnd();
+      })
+        .replace(/Respond with a JSON object[\s\S]*$/, '')
+        .trimEnd();
       pendingSendRef.current = () => executeSend(query);
       setPromptPreview(preview);
     } else {
@@ -208,24 +232,26 @@ export default function Chat() {
 
   const handleAcceptUpdate = async () => {
     if (!pendingUpdate) return;
-    for (const c of pendingUpdate.conditions ?? []) await addToList('conditions', c);
-    for (const a of pendingUpdate.allergies ?? []) await addToList('allergies', a);
-    for (const m of pendingUpdate.medications ?? []) await addToList('medications', m);
+    for (const c of pendingUpdate.conditions ?? [])
+      await addToList('conditions', c);
+    for (const a of pendingUpdate.allergies ?? [])
+      await addToList('allergies', a);
+    for (const m of pendingUpdate.medications ?? [])
+      await addToList('medications', m);
     setPendingUpdate(null);
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
-      <h2 className="text-xl font-bold text-surface-100 mb-4">Health Chat</h2>
+      <h2 className="text-xl font-bold text-surface-100 mb-4">
+        {t('chat.title')}
+      </h2>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-1 pb-2">
         {messages.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-surface-400 text-sm">
-              Ask any health-related question. Your profile will be used for
-              personalized answers.
-            </p>
+            <p className="text-surface-400 text-sm">{t('chat.emptyState')}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {starters.map((q) => (
                 <button
@@ -288,12 +314,22 @@ export default function Chat() {
                     onClick={dismissTip}
                     className="absolute top-1 right-1 text-surface-500 hover:text-surface-300"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                   <p className="text-xs text-surface-300 pr-3">
-                    💡 Start a new chat for unrelated questions — keeps answers faster & more accurate.
+                    {t('chat.newChatTip')}
                   </p>
                   {/* Arrow pointing down at the + button */}
                   <div className="absolute top-full left-5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-surface-600" />
@@ -302,13 +338,25 @@ export default function Chat() {
             )}
             <button
               onClick={handleNewChat}
-              title="Start a new conversation"
+              title={t('chat.newChat')}
               className={`flex items-center justify-center bg-primary-600 hover:bg-primary-500 text-white px-3 py-2.5 rounded-lg transition-colors${
-                messages.length >= NEW_CHAT_PULSE_THRESHOLD ? ' animate-pulse' : ''
+                messages.length >= NEW_CHAT_PULSE_THRESHOLD
+                  ? ' animate-pulse'
+                  : ''
               }`}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
               </svg>
             </button>
           </div>
@@ -323,7 +371,7 @@ export default function Chat() {
               handleSend();
             }
           }}
-          placeholder="Ask a health question…"
+          placeholder={t('chat.placeholder')}
           className="flex-1 bg-surface-800 border border-surface-600 rounded-lg px-3 py-2.5 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
           disabled={loading}
         />
@@ -332,8 +380,18 @@ export default function Chat() {
           disabled={loading || !input.trim()}
           className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+            />
           </svg>
         </button>
       </div>

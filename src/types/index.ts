@@ -68,7 +68,10 @@ export interface VerdictDetail {
 
 export interface HealthContext {
   profile: Partial<HealthProfile>;
-  recentInteractions: Pick<InteractionLog, 'type' | 'query' | 'response' | 'timestamp'>[];
+  recentInteractions: Pick<
+    InteractionLog,
+    'type' | 'query' | 'response' | 'timestamp'
+  >[];
 }
 
 export interface Message {

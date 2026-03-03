@@ -16,7 +16,7 @@ import { LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
-import { SYSTEM_PROMPT } from '../../prompts/system';
+import { getSystemPrompt } from '../../prompts/system';
 
 const API_VERSION = '2024-10-21';
 
@@ -42,7 +42,9 @@ async function chatCompletion(
     },
     body: JSON.stringify({
       messages,
-      ...(config.temperature ? { temperature: parseFloat(config.temperature) } : {}),
+      ...(config.temperature
+        ? { temperature: parseFloat(config.temperature) }
+        : {}),
       response_format: { type: 'json_object' },
     }),
   });
@@ -54,9 +56,17 @@ async function chatCompletion(
   const data = await res.json();
   const finish = data.choices?.[0]?.finish_reason;
   const content = data.choices?.[0]?.message?.content;
-  console.log(LOG_PREFIX, 'Azure OpenAI response', { finish, contentLength: content?.length ?? 0, raw: content?.slice(0, 300) });
+  console.log(LOG_PREFIX, 'Azure OpenAI response', {
+    finish,
+    contentLength: content?.length ?? 0,
+    raw: content?.slice(0, 300),
+  });
   if (!content) {
-    console.error(LOG_PREFIX, 'Empty content from Azure OpenAI API. Full response:', JSON.stringify(data));
+    console.error(
+      LOG_PREFIX,
+      'Empty content from Azure OpenAI API. Full response:',
+      JSON.stringify(data),
+    );
     throw new Error(
       finish === 'length'
         ? 'The AI response was cut off before it could finish. Please try again with fewer ingredients.'
@@ -135,7 +145,7 @@ const azureOpenaiProvider: AIProvider = {
     const prompt = buildFoodAnalysisPrompt(request);
     const raw = await chatCompletion(
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: getSystemPrompt() },
         { role: 'user', content: prompt },
       ],
       config,
@@ -146,7 +156,7 @@ const azureOpenaiProvider: AIProvider = {
   async answerHealthQuery(request: HealthQueryRequest, config) {
     const prompt = buildHealthQueryPrompt(request);
     const messages: { role: string; content: unknown }[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       ...request.conversationHistory.map((m) => ({
         role: m.role,
         content: m.content,
@@ -160,7 +170,7 @@ const azureOpenaiProvider: AIProvider = {
   async analyzeImage(request: ImageAnalysisRequest, config) {
     const prompt = buildImageAnalysisPrompt(request);
     const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       {
         role: 'user',
         content: [

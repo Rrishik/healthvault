@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getRecentScans, getRecentConversationSummaries } from '../services/db';
 import type { FoodScanRecord, ConversationSummary } from '../types';
 import VerdictCard from '../components/VerdictCard';
@@ -10,24 +11,26 @@ import { verdictEmoji } from '../constants';
 type Tab = 'scans' | 'chats';
 
 export default function History() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('scans');
   const [scans, setScans] = useState<FoodScanRecord[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [expandedScan, setExpandedScan] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      getRecentScans(50),
-      getRecentConversationSummaries(50),
-    ]).then(([s, c]) => {
-      setScans(s);
-      setConversations(c);
-    });
+    Promise.all([getRecentScans(50), getRecentConversationSummaries(50)]).then(
+      ([s, c]) => {
+        setScans(s);
+        setConversations(c);
+      },
+    );
   }, []);
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-surface-100">History</h2>
+      <h2 className="text-xl font-bold text-surface-100">
+        {t('history.title')}
+      </h2>
 
       {/* Tab selector */}
       <div className="flex gap-1 bg-surface-800 rounded-lg p-1">
@@ -39,7 +42,7 @@ export default function History() {
               : 'text-surface-400 hover:text-surface-200'
           }`}
         >
-          Scans ({scans.length})
+          {t('history.scans', { count: scans.length })}
         </button>
         <button
           onClick={() => setTab('chats')}
@@ -49,7 +52,7 @@ export default function History() {
               : 'text-surface-400 hover:text-surface-200'
           }`}
         >
-          Chats ({conversations.length})
+          {t('history.chats', { count: conversations.length })}
         </button>
       </div>
 
@@ -58,14 +61,16 @@ export default function History() {
         <div className="space-y-3">
           {scans.length === 0 && (
             <p className="text-center text-surface-400 text-sm py-8">
-              No food scans yet.
+              {t('history.noScans')}
             </p>
           )}
           {scans.map((scan) => (
             <div key={scan.id}>
               <button
                 onClick={() =>
-                  setExpandedScan(expandedScan === scan.id ? null : (scan.id ?? null))
+                  setExpandedScan(
+                    expandedScan === scan.id ? null : (scan.id ?? null),
+                  )
                 }
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg p-3 flex items-center gap-3 hover:bg-surface-700/50 transition-colors text-left"
               >
@@ -87,7 +92,11 @@ export default function History() {
                   stroke="currentColor"
                   strokeWidth={2}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
               {expandedScan === scan.id && (
@@ -105,7 +114,7 @@ export default function History() {
         <div className="space-y-3">
           {conversations.length === 0 && (
             <p className="text-center text-surface-400 text-sm py-8">
-              No conversations yet.
+              {t('history.noChats')}
             </p>
           )}
           {conversations.map((conv) => (
@@ -119,14 +128,14 @@ export default function History() {
                 </p>
                 <p className="text-xs text-surface-500">
                   {new Date(conv.updatedAt).toLocaleString()} ·{' '}
-                  {conv.messageCount} message{conv.messageCount !== 1 ? 's' : ''}
+                  {t('history.messageCount', { count: conv.messageCount })}
                 </p>
               </div>
               <Link
                 to={`/chat?conv=${conv.id}`}
                 className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
               >
-                Resume
+                {t('history.resume')}
               </Link>
             </div>
           ))}

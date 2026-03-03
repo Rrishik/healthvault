@@ -1,6 +1,7 @@
 // HealthVault — Tag input (free-text entry with removable tags)
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface TagInputProps {
   tags: string[];
@@ -13,6 +14,7 @@ export default function TagInput({
   onChange,
   placeholder = 'Add an item…',
 }: TagInputProps) {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
 
   const addTag = () => {
@@ -47,7 +49,7 @@ export default function TagInput({
           onClick={addTag}
           className="bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 rounded-lg text-sm"
         >
-          Add
+          {t('tag.add')}
         </button>
       </div>
       {tags.length > 0 && (

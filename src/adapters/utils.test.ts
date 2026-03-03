@@ -41,7 +41,8 @@ describe('safeParseJSON', () => {
   });
 
   it('repairs truncated JSON by closing braces', () => {
-    const truncated = '{"overall":"safe","summary":"ok","details":[{"ingredient":"sugar","status":"safe","reason":"fine"';
+    const truncated =
+      '{"overall":"safe","summary":"ok","details":[{"ingredient":"sugar","status":"safe","reason":"fine"';
     const result = safeParseJSON<{ overall: string }>(truncated);
     expect(result.overall).toBe('safe');
   });
@@ -65,7 +66,9 @@ describe('safeParseJSON', () => {
       ],
       alternatives: ['stevia'],
     });
-    const result = safeParseJSON<{ overall: string; details: unknown[] }>(input);
+    const result = safeParseJSON<{ overall: string; details: unknown[] }>(
+      input,
+    );
     expect(result.overall).toBe('caution');
     expect(result.details).toHaveLength(1);
   });

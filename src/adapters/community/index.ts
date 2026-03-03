@@ -15,7 +15,7 @@ import { LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
-import { SYSTEM_PROMPT } from '../../prompts/system';
+import { getSystemPrompt } from '../../prompts/system';
 
 const PROXY_URL =
   'https://healthvault-proxy-e0gxb5a4adh9hean.eastus-01.azurewebsites.net/api/chat';
@@ -24,7 +24,9 @@ async function chatCompletion(
   messages: { role: string; content: unknown }[],
   config?: Record<string, string>,
 ): Promise<string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
   if (config?.accessCode) {
     headers['x-access-code'] = config.accessCode;
   }
@@ -50,13 +52,17 @@ async function chatCompletion(
     raw: content?.slice(0, 300),
   });
   if (!content) {
-    console.error(LOG_PREFIX, 'Empty content from Community API. Full response:', JSON.stringify(data));
+    console.error(
+      LOG_PREFIX,
+      'Empty content from Community API. Full response:',
+      JSON.stringify(data),
+    );
     // Detect reasoning model consuming entire token budget
     const reasoning = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
     const completion = usage?.completion_tokens ?? 0;
     if (finish === 'length' && reasoning > 0 && reasoning >= completion) {
       throw new Error(
-        'The AI used all available tokens for internal reasoning and couldn\'t generate a response. Please try again — if the issue persists, try with fewer ingredients or a simpler query.',
+        "The AI used all available tokens for internal reasoning and couldn't generate a response. Please try again — if the issue persists, try with fewer ingredients or a simpler query.",
       );
     }
     throw new Error(
@@ -95,11 +101,14 @@ const communityProvider: AIProvider = {
     }
   },
 
-  async analyzeFood(request: FoodAnalysisRequest, config?: Record<string, string>) {
+  async analyzeFood(
+    request: FoodAnalysisRequest,
+    config?: Record<string, string>,
+  ) {
     const prompt = buildFoodAnalysisPrompt(request);
     const raw = await chatCompletion(
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: getSystemPrompt() },
         { role: 'user', content: prompt },
       ],
       config,
@@ -107,10 +116,13 @@ const communityProvider: AIProvider = {
     return safeParseJSON<FoodVerdict>(raw);
   },
 
-  async answerHealthQuery(request: HealthQueryRequest, config?: Record<string, string>) {
+  async answerHealthQuery(
+    request: HealthQueryRequest,
+    config?: Record<string, string>,
+  ) {
     const prompt = buildHealthQueryPrompt(request);
     const messages: { role: string; content: unknown }[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       ...request.conversationHistory.map((m) => ({
         role: m.role,
         content: m.content,
@@ -121,10 +133,13 @@ const communityProvider: AIProvider = {
     return safeParseJSON<HealthQueryResponse>(raw);
   },
 
-  async analyzeImage(request: ImageAnalysisRequest, config?: Record<string, string>) {
+  async analyzeImage(
+    request: ImageAnalysisRequest,
+    config?: Record<string, string>,
+  ) {
     const prompt = buildImageAnalysisPrompt(request);
     const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       {
         role: 'user',
         content: [

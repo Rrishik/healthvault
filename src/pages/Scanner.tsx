@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAIProvider } from '../hooks/useAIProvider';
 import { useAppContext } from '../context/AppContext';
 import { assembleContext } from '../services/context-assembler';
@@ -12,15 +13,20 @@ import VerdictCard from '../components/VerdictCard';
 import PromptPreviewModal from '../components/PromptPreviewModal';
 import { startNewConversation, saveConversation } from '../services/db';
 import type { FoodVerdict } from '../types';
-import { IMAGE_MAX_DIM, IMAGE_QUALITY } from '../constants';
+import { IMAGE_MAX_DIM, IMAGE_QUALITY, LOG_PREFIX } from '../constants';
 
 type InputMode = 'manual' | 'upload' | 'camera';
 
 /** Resize an image to fit within maxDim and compress as JPEG */
-function compressImage(dataUrl: string, maxDim = IMAGE_MAX_DIM, quality = IMAGE_QUALITY): Promise<{ base64: string; mimeType: string }> {
+function compressImage(
+  dataUrl: string,
+  maxDim = IMAGE_MAX_DIM,
+  quality = IMAGE_QUALITY,
+): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onerror = () => reject(new Error('Failed to load image for compression'));
+    img.onerror = () =>
+      reject(new Error('Failed to load image for compression'));
     img.onload = () => {
       let { width, height } = img;
       if (width > maxDim || height > maxDim) {
@@ -42,7 +48,9 @@ function compressImage(dataUrl: string, maxDim = IMAGE_MAX_DIM, quality = IMAGE_
 }
 
 export default function Scanner() {
-  const { analyzeFood, analyzeImage, loading, error } = useAIProvider();
+  const { t } = useTranslation();
+  const { analyzeFood, analyzeImage, loading, error, provider } =
+    useAIProvider();
   const { settings } = useAppContext();
   const navigate = useNavigate();
   const [mode, setMode] = useState<InputMode>('manual');
@@ -69,7 +77,8 @@ export default function Scanner() {
     if (settings?.showPromptBeforeSending) {
       const context = await assembleContext();
       const preview = buildFoodAnalysisPrompt({ ingredients: list, context })
-        .replace(/Respond with a JSON object[\s\S]*$/, '').trimEnd();
+        .replace(/Respond with a JSON object[\s\S]*$/, '')
+        .trimEnd();
       pendingSendRef.current = () => executeManualSubmit(list);
       setPromptPreview(preview);
     } else {
@@ -91,16 +100,31 @@ export default function Scanner() {
       const { base64, mimeType } = await compressImage(dataUrl);
 
       // Try image analysis first
+      console.log(
+        LOG_PREFIX,
+        'Image scan: attempting direct AI image analysis',
+      );
       const result = await analyzeImage(base64, mimeType);
       if (result) {
+        console.log(LOG_PREFIX, 'Image scan: AI image analysis succeeded');
         setVerdict(result);
         return;
       }
 
+      // analyzeImage returned null — if the provider supports image analysis,
+      // that means it failed (error already shown in UI), so don't retry via OCR.
+      // Only fall back to OCR when image analysis isn't available at all.
+      if (provider?.capabilities.imageAnalysis) return;
+
       // Fall back to OCR → text analysis
+      console.log(
+        LOG_PREFIX,
+        'Image scan: falling back to OCR (provider does not support image analysis)',
+      );
       setOcrLoading(true);
       try {
         const extracted = await extractIngredients(dataUrl);
+        console.log(LOG_PREFIX, 'OCR extracted ingredients:', extracted);
         if (extracted.length > 0) {
           setIngredients(extracted.join(', '));
           const ocrResult = await analyzeFood(extracted);
@@ -119,17 +143,17 @@ export default function Scanner() {
   };
 
   const modeButtons: { mode: InputMode; label: string; icon: string }[] = [
-    { mode: 'manual', label: 'Type', icon: '⌨️' },
-    { mode: 'upload', label: 'Upload', icon: '📁' },
-    { mode: 'camera', label: 'Camera', icon: '📷' },
+    { mode: 'manual', label: t('scanner.type'), icon: '⌨️' },
+    { mode: 'upload', label: t('scanner.upload'), icon: '📁' },
+    { mode: 'camera', label: t('scanner.camera'), icon: '📷' },
   ];
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-surface-100">Food Scanner</h2>
-      <p className="text-surface-400 text-sm">
-        Enter ingredients or snap a photo of a food label to check if they are safe for you.
-      </p>
+      <h2 className="text-xl font-bold text-surface-100">
+        {t('scanner.title')}
+      </h2>
+      <p className="text-surface-400 text-sm">{t('scanner.subtitle')}</p>
 
       {/* Mode selector */}
       <div className="flex gap-2">
@@ -172,7 +196,7 @@ export default function Scanner() {
           <textarea
             value={ingredients}
             onChange={(e) => setIngredients(e.target.value)}
-            placeholder="Enter ingredients separated by commas…&#10;e.g. sugar, citric acid, sodium benzoate"
+            placeholder={t('scanner.placeholder')}
             rows={4}
             className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500 resize-none"
           />
@@ -181,27 +205,37 @@ export default function Scanner() {
             disabled={loading || !ingredients.trim()}
             className="w-full bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors"
           >
-            {loading ? 'Analyzing…' : 'Analyze Ingredients'}
+            {loading ? t('scanner.analyzing') : t('scanner.analyze')}
           </button>
         </div>
       )}
 
       {/* Upload / camera prompt */}
+      {/* Upload / camera prompt */}
       {(mode === 'upload' || mode === 'camera') && !loading && !ocrLoading && (
-        <div
-          onClick={() =>
-            mode === 'upload'
-              ? fileInputRef.current?.click()
-              : cameraInputRef.current?.click()
-          }
-          className="border-2 border-dashed border-surface-600 rounded-xl p-8 text-center cursor-pointer hover:border-primary-500 transition-colors"
-        >
-          <p className="text-surface-400 text-sm">
-            {mode === 'upload'
-              ? 'Click to select a food label image'
-              : 'Click to take a photo of a food label'}
-          </p>
-        </div>
+        <>
+          {!provider?.capabilities.imageAnalysis && (
+            <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-lg p-3">
+              <p className="text-sm text-yellow-300">
+                {t('scanner.imageWarning', { name: provider?.name ?? 'none' })}
+              </p>
+            </div>
+          )}
+          <div
+            onClick={() =>
+              mode === 'upload'
+                ? fileInputRef.current?.click()
+                : cameraInputRef.current?.click()
+            }
+            className="border-2 border-dashed border-surface-600 rounded-xl p-8 text-center cursor-pointer hover:border-primary-500 transition-colors"
+          >
+            <p className="text-surface-400 text-sm">
+              {mode === 'upload'
+                ? t('scanner.clickUpload')
+                : t('scanner.clickCamera')}
+            </p>
+          </div>
+        </>
       )}
 
       {/* Loading states */}
@@ -209,7 +243,9 @@ export default function Scanner() {
         <div className="text-center py-6">
           <div className="inline-block w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-surface-400 text-sm mt-2">
-            {ocrLoading ? 'Reading label text…' : 'Analyzing ingredients…'}
+            {ocrLoading
+              ? t('scanner.readingLabel')
+              : t('scanner.analyzingIngredients')}
           </p>
         </div>
       )}
@@ -232,8 +268,16 @@ export default function Scanner() {
               const ingredientList = ingredients.trim() || 'scanned food label';
               conv.title = `Scan: ${ingredientList}`.slice(0, 60);
               conv.messages = [
-                { role: 'user', content: `Are these ingredients safe for me? ${ingredientList}`, timestamp: now },
-                { role: 'assistant', content: verdict.summary, timestamp: now + 1 },
+                {
+                  role: 'user',
+                  content: `Are these ingredients safe for me? ${ingredientList}`,
+                  timestamp: now,
+                },
+                {
+                  role: 'assistant',
+                  content: verdict.summary,
+                  timestamp: now + 1,
+                },
               ];
               conv.messageCount = 2;
               await saveConversation(conv);
@@ -241,7 +285,7 @@ export default function Scanner() {
             }}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm bg-surface-800 hover:bg-surface-700 border border-surface-700 text-surface-200 transition-colors"
           >
-            💬 Chat about this
+            {t('scanner.chatAboutThis')}
           </button>
         </>
       )}

@@ -1,13 +1,16 @@
 // HealthVault — Settings page
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettings } from '../hooks/useSettings';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { exportData, importData } from '../services/export';
 import ProviderSetup from '../components/ProviderSetup';
 import { STATUS_TOAST_DURATION_MS } from '../constants';
+import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 
 export default function Settings() {
+  const { t, i18n } = useTranslation();
   const {
     settings,
     providers,
@@ -69,7 +72,7 @@ export default function Settings() {
     if (!exportPass) return;
     try {
       await exportData(exportPass);
-      setExportStatus('Export downloaded!');
+      setExportStatus(t('settings.exportDownloaded'));
       setExportPass('');
     } catch (e) {
       setExportStatus(`Error: ${e instanceof Error ? e.message : 'Unknown'}`);
@@ -79,12 +82,17 @@ export default function Settings() {
 
   const handleImport = async (file: File) => {
     if (!importPass) {
-      setImportStatus('Please enter a passphrase first.');
+      setImportStatus(t('settings.enterPassphrase'));
       return;
     }
     try {
       const { imported, skipped } = await importData(file, importPass);
-      setImportStatus(`Imported ${imported} records, skipped ${skipped}.`);
+      setImportStatus(
+        t('settings.imported', {
+          imported: String(imported),
+          skipped: String(skipped),
+        }),
+      );
     } catch (e) {
       setImportStatus(
         `Error: ${e instanceof Error ? e.message : 'Decryption failed'}`,
@@ -102,8 +110,12 @@ export default function Settings() {
     await saveProfile({
       ageRange: profileDraft.ageRange || undefined,
       sex: profileDraft.sex || undefined,
-      heightCm: profileDraft.heightCm ? Number(profileDraft.heightCm) : undefined,
-      weightKg: profileDraft.weightKg ? Number(profileDraft.weightKg) : undefined,
+      heightCm: profileDraft.heightCm
+        ? Number(profileDraft.heightCm)
+        : undefined,
+      weightKg: profileDraft.weightKg
+        ? Number(profileDraft.weightKg)
+        : undefined,
       conditions: split(profileDraft.conditions),
       allergies: split(profileDraft.allergies),
       medications: split(profileDraft.medications),
@@ -115,18 +127,24 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-surface-100">Settings</h2>
+      <h2 className="text-xl font-bold text-surface-100">
+        {t('settings.title')}
+      </h2>
 
       {/* ---- AI Provider ---- */}
       <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-surface-100">AI Provider</h3>
+        <h3 className="text-sm font-semibold text-surface-100">
+          {t('settings.aiProvider')}
+        </h3>
 
         <ProviderSetup
           providers={providers}
           selectedProviderId={provider?.id ?? ''}
           onProviderChange={handleProviderChange}
           config={configDraft}
-          onConfigChange={(key, value) => setConfigDraft({ ...configDraft, [key]: value })}
+          onConfigChange={(key, value) =>
+            setConfigDraft({ ...configDraft, [key]: value })
+          }
           onSaveConfig={handleSaveConfig}
           configSaved={configSaved}
         />
@@ -137,10 +155,10 @@ export default function Settings() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-surface-100">
-              Show Prompt Before Sending
+              {t('settings.promptPreview')}
             </h3>
             <p className="text-xs text-surface-400 mt-0.5">
-              Preview the exact prompt sent to the AI provider
+              {t('settings.promptPreviewDesc')}
             </p>
           </div>
           <button
@@ -166,7 +184,7 @@ export default function Settings() {
       <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-surface-100">
-            Health Profile
+            {t('settings.healthProfile')}
           </h3>
           <button
             onClick={() => {
@@ -178,25 +196,37 @@ export default function Settings() {
             }}
             className="text-xs text-primary-400 hover:underline"
           >
-            {editingProfile ? 'Save' : 'Edit'}
+            {editingProfile ? t('settings.save') : t('settings.edit')}
           </button>
         </div>
 
         {editingProfile ? (
           <div className="space-y-3">
             {[
-              { key: 'ageRange', label: 'Age Range' },
-              { key: 'sex', label: 'Sex' },
-              { key: 'heightCm', label: 'Height (cm)' },
-              { key: 'weightKg', label: 'Weight (kg)' },
-              { key: 'conditions', label: 'Conditions (comma-separated)' },
-              { key: 'allergies', label: 'Allergies (comma-separated)' },
-              { key: 'medications', label: 'Medications (comma-separated)' },
+              { key: 'ageRange', label: t('settings.profileFields.ageRange') },
+              { key: 'sex', label: t('settings.profileFields.sex') },
+              { key: 'heightCm', label: t('settings.profileFields.heightCm') },
+              { key: 'weightKg', label: t('settings.profileFields.weightKg') },
+              {
+                key: 'conditions',
+                label: t('settings.profileFields.conditions'),
+              },
+              {
+                key: 'allergies',
+                label: t('settings.profileFields.allergies'),
+              },
+              {
+                key: 'medications',
+                label: t('settings.profileFields.medications'),
+              },
               {
                 key: 'dietaryPreferences',
-                label: 'Dietary Preferences (comma-separated)',
+                label: t('settings.profileFields.dietaryPreferences'),
               },
-              { key: 'healthGoals', label: 'Health Goals (comma-separated)' },
+              {
+                key: 'healthGoals',
+                label: t('settings.profileFields.healthGoals'),
+              },
             ].map(({ key, label }) => (
               <div key={key}>
                 <label className="text-xs text-surface-400 block mb-1">
@@ -220,19 +250,21 @@ export default function Settings() {
           <div className="space-y-1 text-xs">
             {profile?.ageRange && (
               <p>
-                <span className="text-surface-500">Age: </span>
+                <span className="text-surface-500">{t('settings.age')}</span>
                 <span className="text-surface-300">{profile.ageRange}</span>
               </p>
             )}
             {profile?.sex && (
               <p>
-                <span className="text-surface-500">Sex: </span>
+                <span className="text-surface-500">{t('settings.sex')}</span>
                 <span className="text-surface-300">{profile.sex}</span>
               </p>
             )}
             {(profile?.conditions.length ?? 0) > 0 && (
               <p>
-                <span className="text-surface-500">Conditions: </span>
+                <span className="text-surface-500">
+                  {t('settings.conditions')}
+                </span>
                 <span className="text-surface-300">
                   {profile!.conditions.join(', ')}
                 </span>
@@ -240,7 +272,9 @@ export default function Settings() {
             )}
             {(profile?.allergies.length ?? 0) > 0 && (
               <p>
-                <span className="text-surface-500">Allergies: </span>
+                <span className="text-surface-500">
+                  {t('settings.allergies')}
+                </span>
                 <span className="text-surface-300">
                   {profile!.allergies.join(', ')}
                 </span>
@@ -248,7 +282,9 @@ export default function Settings() {
             )}
             {(profile?.medications.length ?? 0) > 0 && (
               <p>
-                <span className="text-surface-500">Medications: </span>
+                <span className="text-surface-500">
+                  {t('settings.medications')}
+                </span>
                 <span className="text-surface-300">
                   {profile!.medications.join(', ')}
                 </span>
@@ -256,7 +292,7 @@ export default function Settings() {
             )}
             {(profile?.dietaryPreferences.length ?? 0) > 0 && (
               <p>
-                <span className="text-surface-500">Diet: </span>
+                <span className="text-surface-500">{t('settings.diet')}</span>
                 <span className="text-surface-300">
                   {profile!.dietaryPreferences.join(', ')}
                 </span>
@@ -264,14 +300,14 @@ export default function Settings() {
             )}
             {(profile?.healthGoals.length ?? 0) > 0 && (
               <p>
-                <span className="text-surface-500">Goals: </span>
+                <span className="text-surface-500">{t('settings.goals')}</span>
                 <span className="text-surface-300">
                   {profile!.healthGoals.join(', ')}
                 </span>
               </p>
             )}
             {!profile && (
-              <p className="text-surface-500">No profile data yet.</p>
+              <p className="text-surface-500">{t('settings.noProfile')}</p>
             )}
           </div>
         )}
@@ -280,20 +316,20 @@ export default function Settings() {
       {/* ---- Export / Import ---- */}
       <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 space-y-4">
         <h3 className="text-sm font-semibold text-surface-100">
-          Export &amp; Import
+          {t('settings.exportImport')}
         </h3>
 
         {/* Export */}
         <div className="space-y-2">
           <label className="text-xs text-surface-400 block">
-            Export (encrypted backup)
+            {t('settings.exportLabel')}
           </label>
           <div className="flex gap-2">
             <input
               type="password"
               value={exportPass}
               onChange={(e) => setExportPass(e.target.value)}
-              placeholder="Passphrase for encryption"
+              placeholder={t('settings.exportPassphrase')}
               className="flex-1 bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
             />
             <button
@@ -301,7 +337,7 @@ export default function Settings() {
               disabled={!exportPass}
               className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg transition-colors"
             >
-              Export
+              {t('settings.export')}
             </button>
           </div>
           {exportStatus && (
@@ -312,18 +348,18 @@ export default function Settings() {
         {/* Import */}
         <div className="space-y-2">
           <label className="text-xs text-surface-400 block">
-            Import (.healthvault file)
+            {t('settings.importLabel')}
           </label>
           <div className="flex gap-2">
             <input
               type="password"
               value={importPass}
               onChange={(e) => setImportPass(e.target.value)}
-              placeholder="Passphrase for decryption"
+              placeholder={t('settings.importPassphrase')}
               className="flex-1 bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
             />
             <label className="bg-surface-700 hover:bg-surface-600 text-surface-200 text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer">
-              Choose File
+              {t('settings.chooseFile')}
               <input
                 type="file"
                 accept=".healthvault"
@@ -341,33 +377,56 @@ export default function Settings() {
         </div>
       </section>
 
+      {/* ---- Language ---- */}
+      <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-surface-100">
+          {t('settings.language')}
+        </h3>
+        <div className="flex gap-2">
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => changeLanguage(lang.code)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                i18n.language === lang.code
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-surface-900 text-surface-300 hover:bg-surface-700'
+              }`}
+            >
+              <span>{lang.flag}</span>
+              <span>{lang.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* ---- About ---- */}
       <section className="bg-surface-800 border border-surface-700 rounded-xl p-4 text-center">
-        <p className="text-xs text-surface-500">
-          HealthVault v0.1.0 · Local-first · Open source (MIT)
-        </p>
+        <p className="text-xs text-surface-500">{t('settings.about')}</p>
         <p className="text-xs text-surface-600 mt-1">
-          Your data never leaves your device unless you choose to send it to an
-          AI provider.
+          {t('settings.dataPrivacy')}
         </p>
       </section>
 
       {/* ---- Danger Zone ---- */}
       <section className="bg-surface-800 border border-red-900/40 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-red-400">Danger Zone</h3>
+        <h3 className="text-sm font-semibold text-red-400">
+          {t('settings.dangerZone')}
+        </h3>
         <p className="text-xs text-surface-400">
-          Permanently delete all local data including profile, conversations,
-          scan history, and settings. This cannot be undone.
+          {t('settings.dangerZoneDesc')}
         </p>
         <button
           onClick={() => {
-            if (window.confirm('Erase ALL HealthVault data? This cannot be undone.')) {
-              import('../services/db').then(({ clearAllData }) => clearAllData());
+            if (window.confirm(t('settings.clearConfirm'))) {
+              import('../services/db').then(({ clearAllData }) =>
+                clearAllData(),
+              );
             }
           }}
           className="bg-red-700 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg transition-colors"
         >
-          Clear All Data
+          {t('settings.clearAllData')}
         </button>
       </section>
     </div>

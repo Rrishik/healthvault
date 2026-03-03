@@ -1,10 +1,18 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
 
 // In-memory rate limiting (resets on cold start)
 const rateLimitMap = new Map<string, number[]>();
 
 function getCorsHeaders(req: HttpRequest): Record<string, string> {
-  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const allowed = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const origin = req.headers.get('origin') || '';
   const corsOrigin = allowed.includes(origin) ? origin : '';
 
@@ -33,7 +41,10 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-async function chat(req: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
+async function chat(
+  req: HttpRequest,
+  _context: InvocationContext,
+): Promise<HttpResponseInit> {
   const corsHeaders = getCorsHeaders(req);
 
   // Handle CORS preflight
@@ -64,7 +75,8 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
   }
 
   // Rate limiting
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   if (!checkRateLimit(ip)) {
     return {
       status: 429,
@@ -89,7 +101,11 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
   }
 
   // Parse and validate body
-  let body: { messages?: unknown[]; max_tokens?: number; response_format?: unknown };
+  let body: {
+    messages?: unknown[];
+    max_tokens?: number;
+    response_format?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -128,7 +144,9 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
       return {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Invalid message format: each message must have a role string' }),
+        body: JSON.stringify({
+          error: 'Invalid message format: each message must have a role string',
+        }),
       };
     }
   }
@@ -166,7 +184,10 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
     return {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Proxy error: ' + (err instanceof Error ? err.message : String(err)) }),
+      body: JSON.stringify({
+        error:
+          'Proxy error: ' + (err instanceof Error ? err.message : String(err)),
+      }),
     };
   }
 }

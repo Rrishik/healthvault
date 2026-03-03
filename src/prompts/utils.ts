@@ -14,13 +14,17 @@ export function formatProfile(ctx: HealthContext): string {
   if (p.sex) parts.push(`Sex: ${p.sex}`);
   if (p.heightCm) parts.push(`Height: ${p.heightCm} cm`);
   if (p.weightKg) parts.push(`Weight: ${p.weightKg} kg`);
-  if (p.conditions?.length) parts.push(`Conditions: ${p.conditions.join(', ')}`);
+  if (p.conditions?.length)
+    parts.push(`Conditions: ${p.conditions.join(', ')}`);
   if (p.allergies?.length) parts.push(`Allergies: ${p.allergies.join(', ')}`);
-  if (p.medications?.length) parts.push(`Medications: ${p.medications.join(', ')}`);
+  if (p.medications?.length)
+    parts.push(`Medications: ${p.medications.join(', ')}`);
   if (p.dietaryPreferences?.length)
     parts.push(`Diet: ${p.dietaryPreferences.join(', ')}`);
   if (p.healthGoals?.length) parts.push(`Goals: ${p.healthGoals.join(', ')}`);
-  return parts.length > 0 ? parts.join('\n') : 'No profile information available.';
+  return parts.length > 0
+    ? parts.join('\n')
+    : 'No profile information available.';
 }
 
 /**

@@ -23,7 +23,11 @@ export function safeParseJSON<T>(raw: string): T {
   try {
     return JSON.parse(cleaned) as T;
   } catch {
-    console.warn(LOG_PREFIX, 'JSON parse failed, attempting repair. Raw:', raw.slice(0, DEBUG_TRUNCATE_LENGTH));
+    console.warn(
+      LOG_PREFIX,
+      'JSON parse failed, attempting repair. Raw:',
+      raw.slice(0, DEBUG_TRUNCATE_LENGTH),
+    );
     // Attempt to repair truncated JSON by closing open brackets/braces
     const repaired = tryRepairJSON(cleaned);
     if (repaired !== null) {

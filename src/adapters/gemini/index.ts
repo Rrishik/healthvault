@@ -14,7 +14,7 @@ import { DEFAULT_TEMPERATURE, LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
-import { SYSTEM_PROMPT } from '../../prompts/system';
+import { getSystemPrompt } from '../../prompts/system';
 
 const GEMINI_MODELS = [
   { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
@@ -62,9 +62,16 @@ async function generateContent(
 
   const data = await res.json();
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  console.log(LOG_PREFIX, 'Gemini response', { contentLength: content?.length ?? 0, raw: content?.slice(0, 300) });
+  console.log(LOG_PREFIX, 'Gemini response', {
+    contentLength: content?.length ?? 0,
+    raw: content?.slice(0, 300),
+  });
   if (!content) {
-    console.error(LOG_PREFIX, 'Empty content from Gemini API. Full response:', JSON.stringify(data));
+    console.error(
+      LOG_PREFIX,
+      'Empty content from Gemini API. Full response:',
+      JSON.stringify(data),
+    );
     throw new Error('AI returned an empty response. Please try again.');
   }
   return content;
@@ -85,7 +92,7 @@ const geminiProvider: AIProvider = {
       type: 'info',
       required: false,
       placeholder:
-        'The Gemini API transmits your API key as a URL query parameter. This is Google\'s required format. Your key may appear in browser history and network logs.',
+        "The Gemini API transmits your API key as a URL query parameter. This is Google's required format. Your key may appear in browser history and network logs.",
     },
     {
       key: 'apiKey',
@@ -116,9 +123,7 @@ const geminiProvider: AIProvider = {
       const baseUrl =
         config.baseUrl?.replace(/\/+$/, '') ||
         'https://generativelanguage.googleapis.com/v1beta';
-      const res = await fetch(
-        `${baseUrl}/models?key=${config.apiKey}`,
-      );
+      const res = await fetch(`${baseUrl}/models?key=${config.apiKey}`);
       return res.ok;
     } catch {
       return false;
@@ -130,7 +135,7 @@ const geminiProvider: AIProvider = {
     const raw = await generateContent(
       [{ text: prompt }],
       config,
-      SYSTEM_PROMPT,
+      getSystemPrompt(),
     );
     return safeParseJSON<FoodVerdict>(raw);
   },
@@ -146,7 +151,7 @@ const geminiProvider: AIProvider = {
     const raw = await generateContent(
       [{ text: fullPrompt }],
       config,
-      SYSTEM_PROMPT,
+      getSystemPrompt(),
     );
     return safeParseJSON<HealthQueryResponse>(raw);
   },
@@ -156,10 +161,12 @@ const geminiProvider: AIProvider = {
     const raw = await generateContent(
       [
         { text: prompt },
-        { inlineData: { mimeType: request.mimeType, data: request.imageBase64 } },
+        {
+          inlineData: { mimeType: request.mimeType, data: request.imageBase64 },
+        },
       ],
       config,
-      SYSTEM_PROMPT,
+      getSystemPrompt(),
     );
     return safeParseJSON<FoodVerdict>(raw);
   },

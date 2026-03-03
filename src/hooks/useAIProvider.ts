@@ -72,7 +72,10 @@ export function useAIProvider() {
   const askHealthQuery = useCallback(
     async (
       query: string,
-      conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [],
+      conversationHistory: {
+        role: 'user' | 'assistant';
+        content: string;
+      }[] = [],
     ): Promise<HealthQueryResponse | null> => {
       if (!provider) {
         setError('No AI provider selected');
@@ -113,7 +116,10 @@ export function useAIProvider() {
   );
 
   const analyzeImage = useCallback(
-    async (imageBase64: string, mimeType: string): Promise<FoodVerdict | null> => {
+    async (
+      imageBase64: string,
+      mimeType: string,
+    ): Promise<FoodVerdict | null> => {
       if (!provider) {
         setError('No AI provider selected');
         return null;

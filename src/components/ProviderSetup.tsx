@@ -1,6 +1,7 @@
 // HealthVault — Provider setup (shared between Onboarding & Settings)
 
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AIProvider } from '../adapters/types';
 import ConfigFieldRenderer from './ConfigFieldRenderer';
 import CommunityWarning from './CommunityWarning';
@@ -29,6 +30,7 @@ export default function ProviderSetup({
   configSaved,
   onConnectionResult,
 }: ProviderSetupProps) {
+  const { t } = useTranslation();
   const [validating, setValidating] = useState(false);
   const [connectionOk, setConnectionOk] = useState<boolean | null>(null);
 
@@ -59,13 +61,15 @@ export default function ProviderSetup({
     <div className="space-y-4">
       {/* Provider select */}
       <div>
-        <label className="text-sm text-surface-300 block mb-1">Provider</label>
+        <label className="text-sm text-surface-300 block mb-1">
+          {t('provider.label')}
+        </label>
         <select
           value={selectedProviderId}
           onChange={(e) => handleProviderSwitch(e.target.value)}
           className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-primary-500"
         >
-          <option value="">Select a provider…</option>
+          <option value="">{t('provider.select')}</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -93,7 +97,7 @@ export default function ProviderSetup({
                 onClick={onSaveConfig}
                 className="flex-1 bg-primary-600 hover:bg-primary-500 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
-                {configSaved ? '✓ Saved' : 'Save Config'}
+                {configSaved ? t('provider.saved') : t('provider.saveConfig')}
               </button>
             )}
             <button
@@ -104,7 +108,7 @@ export default function ProviderSetup({
               {validating ? (
                 <>
                   <span className="w-4 h-4 border-2 border-surface-400 border-t-transparent rounded-full animate-spin" />
-                  Establishing connection…
+                  {t('provider.establishing')}
                 </>
               ) : (
                 <>
@@ -143,7 +147,9 @@ export default function ProviderSetup({
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              <p className="text-sm text-green-300">Connection successful!</p>
+              <p className="text-sm text-green-300">
+                {t('provider.connectionSuccess')}
+              </p>
             </div>
           )}
           {connectionOk === false && (
@@ -162,7 +168,7 @@ export default function ProviderSetup({
                 />
               </svg>
               <p className="text-sm text-red-300">
-                Connection failed. Check your credentials and try again.
+                {t('provider.connectionFailed')}
               </p>
             </div>
           )}

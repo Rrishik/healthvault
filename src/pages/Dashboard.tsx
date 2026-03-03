@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAppContext } from '../context/AppContext';
 import { getRecentScans, getRecentConversationSummaries } from '../services/db';
 import type { FoodScanRecord, ConversationSummary } from '../types';
 import { verdictEmoji, DISPLAY_ITEMS_COUNT } from '../constants';
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { profile, provider } = useAppContext();
   const [recentScans, setRecentScans] = useState<FoodScanRecord[]>([]);
   const [recentConvs, setRecentConvs] = useState<ConversationSummary[]>([]);
@@ -36,15 +38,15 @@ export default function Dashboard() {
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold text-surface-100">
-          Welcome back{profile?.ageRange ? '' : ''}
+          {t('dashboard.welcomeBack')}
         </h2>
         <p className="text-surface-400 text-sm mt-1">
           {provider
-            ? `Connected to ${provider.name}`
-            : 'No AI provider configured — '}
+            ? t('dashboard.connectedTo', { name: provider.name })
+            : t('dashboard.noProvider')}
           {!provider && (
             <Link to="/settings" className="text-primary-400 hover:underline">
-              set one up
+              {t('dashboard.setOneUp')}
             </Link>
           )}
         </p>
@@ -57,9 +59,11 @@ export default function Dashboard() {
           className="bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-xl p-4 transition-colors"
         >
           <div className="text-2xl mb-2">📷</div>
-          <h3 className="text-sm font-medium text-surface-100">Scan Food</h3>
+          <h3 className="text-sm font-medium text-surface-100">
+            {t('dashboard.scanFood')}
+          </h3>
           <p className="text-xs text-surface-400 mt-0.5">
-            Checks if the ingredients are safe for you
+            {t('dashboard.scanFoodDesc')}
           </p>
         </Link>
         <Link
@@ -68,10 +72,10 @@ export default function Dashboard() {
         >
           <div className="text-2xl mb-2">💬</div>
           <h3 className="text-sm font-medium text-surface-100">
-            New Health Chat
+            {t('dashboard.newHealthChat')}
           </h3>
           <p className="text-xs text-surface-400 mt-0.5">
-            Ask health questions
+            {t('dashboard.newHealthChatDesc')}
           </p>
         </Link>
       </div>
@@ -81,19 +85,21 @@ export default function Dashboard() {
         <div className="bg-surface-800 border border-surface-700 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-surface-100">
-              Your Profile
+              {t('dashboard.yourProfile')}
             </h3>
             <Link
               to="/settings"
               className="text-xs text-primary-400 hover:underline"
             >
-              Edit
+              {t('dashboard.edit')}
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {profile.conditions.length > 0 && (
               <div>
-                <span className="text-surface-500">Conditions: </span>
+                <span className="text-surface-500">
+                  {t('dashboard.conditions')}
+                </span>
                 <span className="text-surface-300">
                   {profile.conditions.join(', ')}
                 </span>
@@ -101,7 +107,9 @@ export default function Dashboard() {
             )}
             {profile.allergies.length > 0 && (
               <div>
-                <span className="text-surface-500">Allergies: </span>
+                <span className="text-surface-500">
+                  {t('dashboard.allergies')}
+                </span>
                 <span className="text-surface-300">
                   {profile.allergies.join(', ')}
                 </span>
@@ -109,7 +117,9 @@ export default function Dashboard() {
             )}
             {profile.medications.length > 0 && (
               <div>
-                <span className="text-surface-500">Medications: </span>
+                <span className="text-surface-500">
+                  {t('dashboard.medications')}
+                </span>
                 <span className="text-surface-300">
                   {profile.medications.join(', ')}
                 </span>
@@ -117,7 +127,7 @@ export default function Dashboard() {
             )}
             {profile.dietaryPreferences.length > 0 && (
               <div>
-                <span className="text-surface-500">Diet: </span>
+                <span className="text-surface-500">{t('dashboard.diet')}</span>
                 <span className="text-surface-300">
                   {profile.dietaryPreferences.join(', ')}
                 </span>
@@ -132,13 +142,13 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-surface-100">
-              Recent Scans
+              {t('dashboard.recentScans')}
             </h3>
             <Link
               to="/history"
               className="text-xs text-primary-400 hover:underline"
             >
-              View all
+              {t('dashboard.viewAll')}
             </Link>
           </div>
           <div className="space-y-2">
@@ -169,13 +179,13 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-surface-100">
-              Recent Conversations
+              {t('dashboard.recentConversations')}
             </h3>
             <Link
               to="/history"
               className="text-xs text-primary-400 hover:underline"
             >
-              View all
+              {t('dashboard.viewAll')}
             </Link>
           </div>
           <div className="space-y-2">
@@ -190,14 +200,14 @@ export default function Dashboard() {
                   </p>
                   <p className="text-xs text-surface-500">
                     {new Date(conv.updatedAt).toLocaleDateString()} ·{' '}
-                    {conv.messageCount} message{conv.messageCount !== 1 ? 's' : ''}
+                    {t('dashboard.messageCount', { count: conv.messageCount })}
                   </p>
                 </div>
                 <Link
                   to={`/chat?conv=${conv.id}`}
                   className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
                 >
-                  Resume
+                  {t('dashboard.resume')}
                 </Link>
               </div>
             ))}
@@ -209,8 +219,7 @@ export default function Dashboard() {
       {recentScans.length === 0 && recentConvs.length === 0 && (
         <div className="text-center py-8">
           <p className="text-surface-400 text-sm">
-            No activity yet. Try scanning a food label or asking a health
-            question!
+            {t('dashboard.noActivity')}
           </p>
         </div>
       )}

@@ -43,9 +43,9 @@ export async function extractIngredients(
     .split(/[,\n;]+/)
     .map((s) =>
       s
-        .replace(/\d+(\.\d+)?%/g, '')   // remove percentages
-        .replace(/^\d+\.\s*/, '')        // remove numbering like "1. "
-        .replace(/[()[\]]/g, '')         // remove brackets
+        .replace(/\d+(\.\d+)?%/g, '') // remove percentages
+        .replace(/^\d+\.\s*/, '') // remove numbering like "1. "
+        .replace(/[()[\]]/g, '') // remove brackets
         .trim(),
     )
     .filter((s) => s.length > 1);

@@ -1,10 +1,21 @@
 // HealthVault — AI Adapter types
 // Every AI provider implements the AIProvider interface.
 
-import type { FoodVerdict, FoodAnalysisRequest, HealthQueryRequest, ImageAnalysisRequest, HealthQueryResponse } from '../types';
+import type {
+  FoodVerdict,
+  FoodAnalysisRequest,
+  HealthQueryRequest,
+  ImageAnalysisRequest,
+  HealthQueryResponse,
+} from '../types';
 
 // Re-export request/response types so existing adapter imports keep working
-export type { FoodAnalysisRequest, HealthQueryRequest, ImageAnalysisRequest, HealthQueryResponse };
+export type {
+  FoodAnalysisRequest,
+  HealthQueryRequest,
+  ImageAnalysisRequest,
+  HealthQueryResponse,
+};
 
 // ---------- Provider config schema ----------
 

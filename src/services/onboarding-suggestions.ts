@@ -38,32 +38,74 @@ export interface Phase1Suggestions {
 // ---------- Hardcoded fallbacks (always available offline) ----------
 
 const FALLBACK_CONDITIONS: string[] = [
-  'Diabetes', 'Hypertension', 'Heart Disease', 'Asthma', 'Celiac Disease',
-  'IBS', 'GERD', 'Thyroid Disorder', 'Kidney Disease', 'Liver Disease',
+  'Diabetes',
+  'Hypertension',
+  'Heart Disease',
+  'Asthma',
+  'Celiac Disease',
+  'IBS',
+  'GERD',
+  'Thyroid Disorder',
+  'Kidney Disease',
+  'Liver Disease',
 ];
 
 const FALLBACK_ALLERGIES: string[] = [
-  'Peanuts', 'Tree Nuts', 'Milk', 'Eggs', 'Wheat', 'Soy', 'Fish',
-  'Shellfish', 'Sesame', 'Gluten',
+  'Peanuts',
+  'Tree Nuts',
+  'Milk',
+  'Eggs',
+  'Wheat',
+  'Soy',
+  'Fish',
+  'Shellfish',
+  'Sesame',
+  'Gluten',
 ];
 
 const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
   medications: [
-    'Metformin', 'Amlodipine', 'Atorvastatin', 'Omeprazole', 'Levothyroxine',
-    'Aspirin', 'Ibuprofen', 'Paracetamol', 'Cetirizine', 'Montelukast',
+    'Metformin',
+    'Amlodipine',
+    'Atorvastatin',
+    'Omeprazole',
+    'Levothyroxine',
+    'Aspirin',
+    'Ibuprofen',
+    'Paracetamol',
+    'Cetirizine',
+    'Montelukast',
   ],
   dietaryPreferences: [
-    'Vegetarian', 'Vegan', 'Keto', 'Paleo', 'Halal', 'Kosher',
-    'Gluten-Free', 'Dairy-Free', 'Low-Sodium', 'Low-Sugar',
+    'Vegetarian',
+    'Vegan',
+    'Keto',
+    'Paleo',
+    'Halal',
+    'Kosher',
+    'Gluten-Free',
+    'Dairy-Free',
+    'Low-Sodium',
+    'Low-Sugar',
   ],
   healthGoals: [
-    'Lose Weight', 'Gain Muscle', 'Improve Heart Health', 'Manage Blood Sugar',
-    'Reduce Inflammation', 'Improve Gut Health', 'Better Sleep', 'More Energy',
+    'Lose Weight',
+    'Gain Muscle',
+    'Improve Heart Health',
+    'Manage Blood Sugar',
+    'Reduce Inflammation',
+    'Improve Gut Health',
+    'Better Sleep',
+    'More Energy',
   ],
 };
 
 export function getFallbackSuggestions(): OnboardingSuggestions {
-  return { conditions: FALLBACK_CONDITIONS, allergies: FALLBACK_ALLERGIES, ...FALLBACK_CONTEXTUAL };
+  return {
+    conditions: FALLBACK_CONDITIONS,
+    allergies: FALLBACK_ALLERGIES,
+    ...FALLBACK_CONTEXTUAL,
+  };
 }
 
 export function getFallbackContextual(): ContextualSuggestions {
@@ -119,7 +161,10 @@ Each category should have 8-12 short items (1-4 words each).`;
 
 /** Sanitise: trim, remove empties, deduplicate, cap at MAX_SUGGESTION_ITEMS each */
 const sanitise = (arr: string[]) =>
-  [...new Set(arr.map((s) => s.trim()).filter(Boolean))].slice(0, MAX_SUGGESTION_ITEMS);
+  [...new Set(arr.map((s) => s.trim()).filter(Boolean))].slice(
+    0,
+    MAX_SUGGESTION_ITEMS,
+  );
 
 /** Extract JSON object from AI answer text (may have trailing disclaimers). */
 function extractJSON(answerText: string): unknown | null {
@@ -132,7 +177,10 @@ function extractJSON(answerText: string): unknown | null {
   try {
     return JSON.parse(answerText.slice(jsonStart, jsonEnd + 1));
   } catch {
-    console.warn(`${LOG_PREFIX} Failed to parse JSON:`, answerText.slice(jsonStart, jsonStart + DEBUG_TRUNCATE_LENGTH));
+    console.warn(
+      `${LOG_PREFIX} Failed to parse JSON:`,
+      answerText.slice(jsonStart, jsonStart + DEBUG_TRUNCATE_LENGTH),
+    );
     return null;
   }
 }
@@ -176,9 +224,10 @@ async function _generatePhase1(
 ): Promise<Phase1Suggestions | null> {
   try {
     const { locale, timezone } = getLocaleInfo();
-    const prompt = PHASE1_PROMPT
-      .replace('{locale}', locale)
-      .replace('{timezone}', timezone);
+    const prompt = PHASE1_PROMPT.replace('{locale}', locale).replace(
+      '{timezone}',
+      timezone,
+    );
 
     const result = await withTimeout(
       provider.answerHealthQuery(
@@ -199,8 +248,16 @@ async function _generatePhase1(
 
     console.log(`${LOG_PREFIX} Phase 1 raw response:`, result);
 
-    const parsed = extractJSON(result.answer) as { conditions?: string[]; allergies?: string[] } | null;
-    if (!parsed || !Array.isArray(parsed.conditions) || !Array.isArray(parsed.allergies)) return null;
+    const parsed = extractJSON(result.answer) as {
+      conditions?: string[];
+      allergies?: string[];
+    } | null;
+    if (
+      !parsed ||
+      !Array.isArray(parsed.conditions) ||
+      !Array.isArray(parsed.allergies)
+    )
+      return null;
 
     console.log(`${LOG_PREFIX} Phase 1 parsed:`, parsed);
     return {
@@ -228,8 +285,10 @@ export async function generateContextualSuggestions(
 ): Promise<ContextualSuggestions | null> {
   try {
     const { locale, timezone } = getLocaleInfo();
-    const prompt = CONTEXTUAL_PROMPT
-      .replace('{conditions}', conditions.join(', '))
+    const prompt = CONTEXTUAL_PROMPT.replace(
+      '{conditions}',
+      conditions.join(', '),
+    )
       .replace('{locale}', locale)
       .replace('{timezone}', timezone);
 
@@ -271,7 +330,10 @@ export async function generateContextualSuggestions(
       healthGoals: sanitise(parsed.healthGoals),
     };
   } catch (err) {
-    console.warn(`${LOG_PREFIX} Failed to generate contextual suggestions`, err);
+    console.warn(
+      `${LOG_PREFIX} Failed to generate contextual suggestions`,
+      err,
+    );
     return null;
   }
 }

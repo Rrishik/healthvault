@@ -6,7 +6,11 @@ import type { AIProvider } from '../adapters/types';
 import type { HealthProfile } from '../types';
 import { assembleContext } from './context-assembler';
 import { safeParseJSON } from '../adapters/utils';
-import { MAX_STARTERS_CACHED, DISPLAY_ITEMS_COUNT, LOG_PREFIX } from '../constants';
+import {
+  MAX_STARTERS_CACHED,
+  DISPLAY_ITEMS_COUNT,
+  LOG_PREFIX,
+} from '../constants';
 
 const STARTERS_QUERY = `Based on my health profile, generate exactly 12 short, personalised conversation-starter questions I might want to ask you. Each should be a single sentence (max 60 chars) and cover a mix of:
 - food/ingredient interactions with my medications or conditions
@@ -54,10 +58,15 @@ export async function generateChatStarters(
     let starters: string[] | null = null;
 
     // Attempt 1: answer is already a JSON array string
-    const parsed = safeParseJSON<string[] | { answer: string[] }>(response.answer);
+    const parsed = safeParseJSON<string[] | { answer: string[] }>(
+      response.answer,
+    );
     if (Array.isArray(parsed)) {
       starters = parsed;
-    } else if (parsed && Array.isArray((parsed as { answer: string[] }).answer)) {
+    } else if (
+      parsed &&
+      Array.isArray((parsed as { answer: string[] }).answer)
+    ) {
       starters = (parsed as { answer: string[] }).answer;
     }
 
@@ -65,14 +74,16 @@ export async function generateChatStarters(
     if (!starters) {
       starters = response.answer
         .split('\n')
-        .map((l) => l.replace(/^\d+[\.\)]\s*/, '').trim())
+        .map((l) => l.replace(/^\d+[.)\s]*/, '').trim())
         .filter((l) => l.length > 5 && l.length <= 80 && l.endsWith('?'));
     }
 
     if (!starters || starters.length === 0) return null;
 
     // Sanitise: trim, enforce max length, remove duplicates
-    return [...new Set(starters.map((s) => s.trim()).filter((s) => s.length > 0))].slice(0, MAX_STARTERS_CACHED);
+    return [
+      ...new Set(starters.map((s) => s.trim()).filter((s) => s.length > 0)),
+    ].slice(0, MAX_STARTERS_CACHED);
   } catch {
     // Swallow errors — starters are a nice-to-have, not critical
     console.warn(`${LOG_PREFIX} Failed to generate chat starters`);
@@ -83,7 +94,10 @@ export async function generateChatStarters(
 /**
  * Randomly pick `count` items from the cached starters array.
  */
-export function pickRandomStarters(starters: string[], count = DISPLAY_ITEMS_COUNT): string[] {
+export function pickRandomStarters(
+  starters: string[],
+  count = DISPLAY_ITEMS_COUNT,
+): string[] {
   if (starters.length <= count) return starters;
   const shuffled = [...starters].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);

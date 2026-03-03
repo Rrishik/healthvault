@@ -14,7 +14,12 @@ export function useHealthProfile() {
   };
 
   const addToList = async (
-    field: 'conditions' | 'allergies' | 'medications' | 'dietaryPreferences' | 'healthGoals',
+    field:
+      | 'conditions'
+      | 'allergies'
+      | 'medications'
+      | 'dietaryPreferences'
+      | 'healthGoals',
     item: string,
   ) => {
     const current = profile?.[field] ?? [];
@@ -24,7 +29,12 @@ export function useHealthProfile() {
   };
 
   const removeFromList = async (
-    field: 'conditions' | 'allergies' | 'medications' | 'dietaryPreferences' | 'healthGoals',
+    field:
+      | 'conditions'
+      | 'allergies'
+      | 'medications'
+      | 'dietaryPreferences'
+      | 'healthGoals',
     item: string,
   ) => {
     const current = profile?.[field] ?? [];

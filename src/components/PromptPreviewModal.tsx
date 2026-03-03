@@ -2,6 +2,7 @@
 // Shows the full prompt that will be sent to the AI provider.
 
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface PromptPreviewModalProps {
   prompt: string;
@@ -14,6 +15,7 @@ export default function PromptPreviewModal({
   onConfirm,
   onCancel,
 }: PromptPreviewModalProps) {
+  const { t } = useTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -40,14 +42,24 @@ export default function PromptPreviewModal({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700">
           <h3 className="text-sm font-semibold text-surface-100">
-            Prompt Preview
+            {t('prompt.title')}
           </h3>
           <button
             onClick={onCancel}
             className="text-surface-500 hover:text-surface-300 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -65,13 +77,13 @@ export default function PromptPreviewModal({
             onClick={onCancel}
             className="flex-1 bg-surface-800 hover:bg-surface-700 text-surface-300 py-2 rounded-lg text-sm transition-colors"
           >
-            Cancel
+            {t('prompt.cancel')}
           </button>
           <button
             onClick={onConfirm}
             className="flex-1 bg-primary-600 hover:bg-primary-500 text-white py-2 rounded-lg text-sm transition-colors"
           >
-            Send
+            {t('prompt.send')}
           </button>
         </div>
       </div>

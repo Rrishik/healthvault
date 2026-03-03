@@ -6,7 +6,11 @@ interface ChatBubbleProps {
   timestamp: number;
 }
 
-export default function ChatBubble({ role, content, timestamp }: ChatBubbleProps) {
+export default function ChatBubble({
+  role,
+  content,
+  timestamp,
+}: ChatBubbleProps) {
   const isUser = role === 'user';
 
   return (

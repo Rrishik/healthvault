@@ -86,9 +86,7 @@ export async function addFoodScan(
   return db.foodScanHistory.add(record as FoodScanRecord);
 }
 
-export async function getRecentScans(
-  limit = 10,
-): Promise<FoodScanRecord[]> {
+export async function getRecentScans(limit = 10): Promise<FoodScanRecord[]> {
   return db.foodScanHistory
     .orderBy('timestamp')
     .reverse()
@@ -164,7 +162,14 @@ export async function startNewConversation(): Promise<Conversation> {
     updatedAt: now,
   } as Conversation);
   await pruneOldConversations();
-  return { id, title: DEFAULT_CHAT_TITLE, messages: [], messageCount: 0, createdAt: now, updatedAt: now };
+  return {
+    id,
+    title: DEFAULT_CHAT_TITLE,
+    messages: [],
+    messageCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function getConversationById(
@@ -183,7 +188,11 @@ export async function getRecentConversations(
 export async function getRecentConversationSummaries(
   limit: number,
 ): Promise<ConversationSummary[]> {
-  const convs = await db.conversations.orderBy('updatedAt').reverse().limit(limit).toArray();
+  const convs = await db.conversations
+    .orderBy('updatedAt')
+    .reverse()
+    .limit(limit)
+    .toArray();
   return convs
     .filter((c) => c.messageCount > 0)
     .map(({ messages: _msgs, ...summary }) => summary);

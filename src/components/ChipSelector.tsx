@@ -1,5 +1,7 @@
 // HealthVault — Chip selector (toggle-able pill buttons)
 
+import { useTranslation } from 'react-i18next';
+
 interface ChipSelectorProps {
   options: string[];
   selected: string[];
@@ -14,6 +16,7 @@ export default function ChipSelector({
   onChange,
   loading,
 }: ChipSelectorProps) {
+  const { t } = useTranslation();
   const toggle = (item: string) => {
     onChange(
       selected.includes(item)
@@ -54,7 +57,7 @@ export default function ChipSelector({
       {loading && options.length > 0 && (
         <div className="flex items-center gap-1.5 text-xs text-surface-500">
           <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
-          Personalizing suggestions…
+          {t('chip.personalizing')}
         </div>
       )}
     </div>

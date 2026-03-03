@@ -14,7 +14,7 @@ import { DEFAULT_TEMPERATURE, LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
-import { SYSTEM_PROMPT } from '../../prompts/system';
+import { getSystemPrompt } from '../../prompts/system';
 
 const OPENAI_MODELS = [
   { label: 'GPT-4o', value: 'gpt-4o' },
@@ -26,7 +26,8 @@ async function chatCompletion(
   messages: { role: string; content: unknown }[],
   config: Record<string, string>,
 ): Promise<string> {
-  const baseUrl = config.baseUrl?.replace(/\/+$/, '') || 'https://api.openai.com/v1';
+  const baseUrl =
+    config.baseUrl?.replace(/\/+$/, '') || 'https://api.openai.com/v1';
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -48,9 +49,17 @@ async function chatCompletion(
   const data = await res.json();
   const finish = data.choices?.[0]?.finish_reason;
   const content = data.choices?.[0]?.message?.content;
-  console.log(LOG_PREFIX, 'OpenAI response', { finish, contentLength: content?.length ?? 0, raw: content?.slice(0, 300) });
+  console.log(LOG_PREFIX, 'OpenAI response', {
+    finish,
+    contentLength: content?.length ?? 0,
+    raw: content?.slice(0, 300),
+  });
   if (!content) {
-    console.error(LOG_PREFIX, 'Empty content from OpenAI API. Full response:', JSON.stringify(data));
+    console.error(
+      LOG_PREFIX,
+      'Empty content from OpenAI API. Full response:',
+      JSON.stringify(data),
+    );
     throw new Error(
       finish === 'length'
         ? 'The AI response was cut off before it could finish. Please try again with fewer ingredients.'
@@ -95,7 +104,8 @@ const openaiProvider: AIProvider = {
 
   async validateConfig(config) {
     try {
-      const baseUrl = config.baseUrl?.replace(/\/+$/, '') || 'https://api.openai.com/v1';
+      const baseUrl =
+        config.baseUrl?.replace(/\/+$/, '') || 'https://api.openai.com/v1';
       const res = await fetch(`${baseUrl}/models`, {
         headers: { Authorization: `Bearer ${config.apiKey}` },
       });
@@ -109,7 +119,7 @@ const openaiProvider: AIProvider = {
     const prompt = buildFoodAnalysisPrompt(request);
     const raw = await chatCompletion(
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: getSystemPrompt() },
         { role: 'user', content: prompt },
       ],
       config,
@@ -120,7 +130,7 @@ const openaiProvider: AIProvider = {
   async answerHealthQuery(request: HealthQueryRequest, config) {
     const prompt = buildHealthQueryPrompt(request);
     const messages: { role: string; content: unknown }[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       ...request.conversationHistory.map((m) => ({
         role: m.role,
         content: m.content,
@@ -134,7 +144,7 @@ const openaiProvider: AIProvider = {
   async analyzeImage(request: ImageAnalysisRequest, config) {
     const prompt = buildImageAnalysisPrompt(request);
     const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt() },
       {
         role: 'user',
         content: [

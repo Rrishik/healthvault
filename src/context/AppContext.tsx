@@ -54,7 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const providers = listProviders();
   const provider = settings?.selectedProviderId
-    ? getProvider(settings.selectedProviderId) ?? null
+    ? (getProvider(settings.selectedProviderId) ?? null)
     : null;
 
   // Initial load
@@ -63,14 +63,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Decrypt provider configs if encrypted
       if (s.encryptedProviderConfigs) {
         try {
-          s.providerConfigs = await decryptConfigData(s.encryptedProviderConfigs);
+          s.providerConfigs = await decryptConfigData(
+            s.encryptedProviderConfigs,
+          );
         } catch {
           s.providerConfigs = {};
         }
       } else if (Object.keys(s.providerConfigs).length > 0) {
         // Migrate existing plaintext configs to encrypted storage
         const encrypted = await encryptConfigData(s.providerConfigs);
-        await dbUpdateSettings({ encryptedProviderConfigs: encrypted, providerConfigs: {} });
+        await dbUpdateSettings({
+          encryptedProviderConfigs: encrypted,
+          providerConfigs: {},
+        });
         // s.providerConfigs is still the original plaintext for in-memory use
       }
       setSettings(s);
@@ -79,57 +84,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateSettings = useCallback(
-    async (patch: Partial<AppSettings>) => {
-      // Encrypt providerConfigs before persisting
-      if (patch.providerConfigs) {
-        const encrypted = await encryptConfigData(patch.providerConfigs);
-        await dbUpdateSettings({
-          ...patch,
-          providerConfigs: {}, // Clear plaintext in IDB
-          encryptedProviderConfigs: encrypted,
-        });
-      } else {
-        await dbUpdateSettings(patch);
-      }
-      // Re-read and decrypt for in-memory state
-      const fresh = await getSettings();
-      if (fresh.encryptedProviderConfigs) {
-        try {
-          fresh.providerConfigs = await decryptConfigData(fresh.encryptedProviderConfigs);
-        } catch {
-          fresh.providerConfigs = {};
-        }
-      }
-      setSettings(fresh);
-    },
-    [],
-  );
-
-  const saveProfile = useCallback(async (patch: Partial<HealthProfile>) => {
-    await dbSaveProfile(patch);
-    const fresh = await getProfile();
-    setProfile(fresh ?? null);
-
-    // Fire-and-forget: regenerate AI chat starters in the background
-    if (provider && settings) {
-      const config = settings.providerConfigs[provider.id] ?? {};
-      generateChatStarters(provider, config, fresh ?? null).then(async (starters) => {
-        if (starters && starters.length > 0) {
-          await dbUpdateSettings({ chatStarters: starters });
-          const s = await getSettings();
-          if (s.encryptedProviderConfigs) {
-            try {
-              s.providerConfigs = await decryptConfigData(s.encryptedProviderConfigs);
-            } catch {
-              s.providerConfigs = {};
-            }
-          }
-          setSettings(s);
-        }
+  const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
+    // Encrypt providerConfigs before persisting
+    if (patch.providerConfigs) {
+      const encrypted = await encryptConfigData(patch.providerConfigs);
+      await dbUpdateSettings({
+        ...patch,
+        providerConfigs: {}, // Clear plaintext in IDB
+        encryptedProviderConfigs: encrypted,
       });
+    } else {
+      await dbUpdateSettings(patch);
     }
-  }, [provider, settings]);
+    // Re-read and decrypt for in-memory state
+    const fresh = await getSettings();
+    if (fresh.encryptedProviderConfigs) {
+      try {
+        fresh.providerConfigs = await decryptConfigData(
+          fresh.encryptedProviderConfigs,
+        );
+      } catch {
+        fresh.providerConfigs = {};
+      }
+    }
+    setSettings(fresh);
+  }, []);
+
+  const saveProfile = useCallback(
+    async (patch: Partial<HealthProfile>) => {
+      await dbSaveProfile(patch);
+      const fresh = await getProfile();
+      setProfile(fresh ?? null);
+
+      // Fire-and-forget: regenerate AI chat starters in the background
+      if (provider && settings) {
+        const config = settings.providerConfigs[provider.id] ?? {};
+        generateChatStarters(provider, config, fresh ?? null).then(
+          async (starters) => {
+            if (starters && starters.length > 0) {
+              await dbUpdateSettings({ chatStarters: starters });
+              const s = await getSettings();
+              if (s.encryptedProviderConfigs) {
+                try {
+                  s.providerConfigs = await decryptConfigData(
+                    s.encryptedProviderConfigs,
+                  );
+                } catch {
+                  s.providerConfigs = {};
+                }
+              }
+              setSettings(s);
+            }
+          },
+        );
+      }
+    },
+    [provider, settings],
+  );
 
   const selectProvider = useCallback(
     async (id: string) => {
