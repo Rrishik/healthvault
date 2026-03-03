@@ -10,7 +10,7 @@ import type {
 import type { FoodVerdict } from '../../types';
 import { registerProvider } from '../registry';
 import { safeParseJSON } from '../utils';
-import { DEFAULT_TEMPERATURE } from '../../constants';
+import { DEFAULT_TEMPERATURE, LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
@@ -46,7 +46,18 @@ async function chatCompletion(
     throw new Error(`OpenAI API error ${res.status}: ${body}`);
   }
   const data = await res.json();
-  return data.choices[0].message.content;
+  const finish = data.choices?.[0]?.finish_reason;
+  const content = data.choices?.[0]?.message?.content;
+  console.log(LOG_PREFIX, 'OpenAI response', { finish, contentLength: content?.length ?? 0, raw: content?.slice(0, 300) });
+  if (!content) {
+    console.error(LOG_PREFIX, 'Empty content from OpenAI API. Full response:', JSON.stringify(data));
+    throw new Error(
+      finish === 'length'
+        ? 'The AI response was cut off before it could finish. Please try again with fewer ingredients.'
+        : 'AI returned an empty response. Please try again.',
+    );
+  }
+  return content;
 }
 
 const openaiProvider: AIProvider = {

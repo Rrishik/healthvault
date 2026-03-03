@@ -10,7 +10,7 @@ import type {
 import type { FoodVerdict } from '../../types';
 import { registerProvider } from '../registry';
 import { safeParseJSON } from '../utils';
-import { DEFAULT_TEMPERATURE } from '../../constants';
+import { DEFAULT_TEMPERATURE, LOG_PREFIX } from '../../constants';
 import { buildFoodAnalysisPrompt } from '../../prompts/food-analysis';
 import { buildHealthQueryPrompt } from '../../prompts/health-query';
 import { buildImageAnalysisPrompt } from '../../prompts/image-analysis';
@@ -61,7 +61,13 @@ async function generateContent(
   }
 
   const data = await res.json();
-  return data.candidates[0].content.parts[0].text;
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  console.log(LOG_PREFIX, 'Gemini response', { contentLength: content?.length ?? 0, raw: content?.slice(0, 300) });
+  if (!content) {
+    console.error(LOG_PREFIX, 'Empty content from Gemini API. Full response:', JSON.stringify(data));
+    throw new Error('AI returned an empty response. Please try again.');
+  }
+  return content;
 }
 
 const geminiProvider: AIProvider = {

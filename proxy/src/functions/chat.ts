@@ -78,7 +78,7 @@ async function chat(req: HttpRequest, _context: InvocationContext): Promise<Http
   const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
   const apiKey = process.env.AZURE_OPENAI_KEY;
   const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
-  const maxTokens = parseInt(process.env.MAX_TOKENS || '800');
+  const maxTokens = parseInt(process.env.MAX_TOKENS || '4096');
 
   if (!endpoint || !deployment || !apiKey) {
     return {

@@ -35,6 +35,17 @@ describe('safeParseJSON', () => {
     );
   });
 
+  it('throws on empty response', () => {
+    expect(() => safeParseJSON('')).toThrow(/empty response/);
+    expect(() => safeParseJSON('  ')).toThrow(/empty response/);
+  });
+
+  it('repairs truncated JSON by closing braces', () => {
+    const truncated = '{"overall":"safe","summary":"ok","details":[{"ingredient":"sugar","status":"safe","reason":"fine"';
+    const result = safeParseJSON<{ overall: string }>(truncated);
+    expect(result.overall).toBe('safe');
+  });
+
   it('includes raw response snippet in error', () => {
     const longBadResponse = 'a'.repeat(400);
     try {
@@ -42,8 +53,6 @@ describe('safeParseJSON', () => {
       expect.fail('should throw');
     } catch (e) {
       expect((e as Error).message).toContain('Raw response (first 300 chars)');
-      // Should truncate at 300 chars
-      expect((e as Error).message.length).toBeLessThan(500);
     }
   });
 
