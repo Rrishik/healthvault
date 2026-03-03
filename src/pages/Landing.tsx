@@ -3,14 +3,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import {
+  SUPPORTED_LANGUAGES,
+  changeLanguage,
+} from '../i18n';
 
 const SLIDE_ICONS = ['🛡️', '🍎', '🩺', '🔒', '💬', '🚀'];
 
 export default function Landing() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [current, setCurrent] = useState(0);
   const navigate = useNavigate();
   const isLast = current === SLIDE_ICONS.length - 1;
+
+  const currentLang = SUPPORTED_LANGUAGES.find(
+    (l) => l.code === i18n.language,
+  );
+  const nextLang = SUPPORTED_LANGUAGES.find(
+    (l) => l.code !== i18n.language,
+  );
 
   const next = () => {
     if (isLast) {
@@ -24,8 +35,17 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-surface-900 flex flex-col items-center justify-between px-6 py-12 text-center select-none">
-      {/* Skip button */}
-      <div className="w-full flex justify-end">
+      {/* Top bar: language toggle + skip */}
+      <div className="w-full flex justify-between items-center">
+        <button
+          onClick={() => {
+            if (nextLang) changeLanguage(nextLang.code);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-300 text-sm transition-colors cursor-pointer"
+        >
+          <span>{currentLang?.flag}</span>
+          <span>{currentLang?.label}</span>
+        </button>
         <button
           onClick={skip}
           className="text-surface-400 hover:text-surface-200 text-sm transition-colors cursor-pointer"

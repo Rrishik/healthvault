@@ -10,10 +10,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  SUPPORTED_LANGUAGES,
-  changeLanguage,
-} from '../i18n';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useSettings } from '../hooks/useSettings';
 import ProviderSetup from '../components/ProviderSetup';
@@ -73,11 +69,7 @@ export default function Onboarding() {
   const [establishing, setEstablishing] = useState(false); // true while Phase 1 in progress
   const [connectionVerified, setConnectionVerified] = useState(false); // true after successful connection
 
-  // Language state
-  const { i18n } = useTranslation();
-  const [selectedLang, setSelectedLang] = useState(i18n.language);
-
-  const totalSteps = 9; // language + provider + 7 profile steps
+  const totalSteps = 8; // provider + 7 profile steps
 
   // ---------- Phase 1: Fire condition + allergy suggestions after successful connection ----------
   const handleConnectionResult = async (ok: boolean) => {
@@ -170,36 +162,7 @@ export default function Onboarding() {
   // ---------- Steps ----------
 
   const steps = [
-    // Step 0: Language Selection
-    <div key="language" className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {t('onboarding.chooseLanguage')}
-      </h2>
-      <p className="text-surface-400 text-sm">
-        {t('onboarding.chooseLanguageDesc')}
-      </p>
-      <div className="grid gap-2">
-        {SUPPORTED_LANGUAGES.map((lang) => (
-          <button
-            key={lang.code}
-            onClick={() => {
-              setSelectedLang(lang.code);
-              changeLanguage(lang.code);
-            }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-colors ${
-              selectedLang === lang.code
-                ? 'border-primary-500 bg-primary-500/10 text-primary-400'
-                : 'border-surface-700 bg-surface-800 text-surface-300 hover:border-surface-500'
-            }`}
-          >
-            <span className="text-2xl">{lang.flag}</span>
-            <span className="font-medium">{lang.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>,
-
-    // Step 1: AI Provider Setup
+    // Step 0: AI Provider Setup
     <div key="provider" className="space-y-4">
       <h2 className="text-xl font-semibold">
         {t('onboarding.connectProvider')}
@@ -477,11 +440,11 @@ export default function Onboarding() {
         {step < totalSteps - 1 ? (
           <button
             onClick={() => {
-              // Fire Phase 2 when leaving the conditions step (step 3)
-              if (step === 3) fireContextualSuggestions();
+              // Fire Phase 2 when leaving the conditions step (step 2)
+              if (step === 2) fireContextualSuggestions();
               setStep(step + 1);
             }}
-            disabled={step === 1 && (establishing || !connectionVerified)}
+            disabled={step === 0 && (establishing || !connectionVerified)}
             className="flex-1 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors"
           >
             {t('onboarding.next')}
