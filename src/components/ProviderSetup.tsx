@@ -18,6 +18,8 @@ interface ProviderSetupProps {
   configSaved?: boolean;
   /** Called with true/false after test connection completes. May return a Promise to keep the button loading. */
   onConnectionResult?: (ok: boolean) => void | Promise<void>;
+  /** Optional override for the test connection logic (replaces validateConfig call) */
+  onTestConnection?: () => Promise<void>;
 }
 
 export default function ProviderSetup({
@@ -29,6 +31,7 @@ export default function ProviderSetup({
   onSaveConfig,
   configSaved,
   onConnectionResult,
+  onTestConnection,
 }: ProviderSetupProps) {
   const { t } = useTranslation();
   const [validating, setValidating] = useState(false);
@@ -41,16 +44,22 @@ export default function ProviderSetup({
     setValidating(true);
     setConnectionOk(null);
     try {
-      const ok = await provider.validateConfig(config);
-      await onConnectionResult?.(ok);
-      setConnectionOk(ok);
+      if (onTestConnection) {
+        // Use custom test (e.g. onboarding combines test + suggestions)
+        await onTestConnection();
+        setConnectionOk(true);
+      } else {
+        const ok = await provider.validateConfig(config);
+        await onConnectionResult?.(ok);
+        setConnectionOk(ok);
+      }
     } catch {
       await onConnectionResult?.(false);
       setConnectionOk(false);
     } finally {
       setValidating(false);
     }
-  }, [provider, config, onConnectionResult]);
+  }, [provider, config, onConnectionResult, onTestConnection]);
 
   const handleProviderSwitch = (id: string) => {
     setConnectionOk(null);

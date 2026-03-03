@@ -66,20 +66,23 @@ export default function Onboarding() {
   const [healthGoals, setHealthGoals] = useState<string[]>(
     profile?.healthGoals ?? [],
   );
-  const [establishing, setEstablishing] = useState(false); // true while Phase 1 in progress
   const [connectionVerified, setConnectionVerified] = useState(false); // true after successful connection
 
   const totalSteps = 8; // provider + 7 profile steps
 
-  // ---------- Phase 1: Fire condition + allergy suggestions after successful connection ----------
-  const handleConnectionResult = async (ok: boolean) => {
-    if (ok && !conditionsRequested.current) {
-      conditionsRequested.current = true;
-      const prov = providers.find((p) => p.id === selectedProvider);
-      if (!prov) return;
-      setEstablishing(true);
-      setConditionsLoading(true);
-      const result = await generatePhase1Suggestions(prov, configDraft);
+  // ---------- Phase 1: Use suggestions request as connection test ----------
+  const handleEstablishConnection = useCallback(async () => {
+    if (!selectedProvider) return;
+    const prov = providers.find((p) => p.id === selectedProvider);
+    if (!prov) throw new Error('Provider not found');
+
+    conditionsRequested.current = true;
+    setConditionsLoading(true);
+    try {
+      const result = await generatePhase1Suggestions(
+        prov,
+        configDraft,
+      );
       if (result) {
         setSuggestions((prev) => ({
           ...prev,
@@ -87,11 +90,18 @@ export default function Onboarding() {
           allergies: result.allergies,
         }));
       }
-      setConditionsLoading(false);
-      setEstablishing(false);
       setConnectionVerified(true);
+    } catch (e) {
+      conditionsRequested.current = false;
+      throw e; // re-throw so ProviderSetup shows failure state
+    } finally {
+      setConditionsLoading(false);
     }
-  };
+  }, [
+    selectedProvider,
+    providers,
+    configDraft,
+  ]);
 
   // ---------- Phase 2: Fire contextual suggestions when leaving conditions step ----------
   const fireContextualSuggestions = useCallback(() => {
@@ -187,7 +197,7 @@ export default function Onboarding() {
           lastContextConditions.current = '';
           setConnectionVerified(false);
         }}
-        onConnectionResult={handleConnectionResult}
+        onTestConnection={handleEstablishConnection}
       />
     </div>,
 
@@ -444,7 +454,7 @@ export default function Onboarding() {
               if (step === 2) fireContextualSuggestions();
               setStep(step + 1);
             }}
-            disabled={step === 0 && (establishing || !connectionVerified)}
+            disabled={step === 0 && !connectionVerified}
             className="flex-1 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors"
           >
             {t('onboarding.next')}
