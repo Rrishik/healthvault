@@ -18,6 +18,7 @@ HealthVault helps you understand food ingredients, answer health questions, and 
 | **Interaction History** | Browse past food scans and health queries with expandable details. |
 | **Encrypted Backup** | Export all data as a passphrase-encrypted `.healthvault` file. Import it on another device. |
 | **Installable PWA** | Add to your home screen on any device. Works offline for UI and OCR. |
+| **Internationalization** | Full i18n support via react-i18next. Ships with English and Hindi; add new languages by dropping a JSON file in `src/i18n/`. |
 
 ### Supported AI Providers
 
@@ -95,6 +96,14 @@ npm run build
 npm run preview
 ```
 
+### Lint & Format
+
+```bash
+npm run lint        # auto-fix lint errors + format to 80-char lines
+```
+
+Prettier is integrated into ESLint — running `npm run lint` formats all files and fixes lint issues in one pass.
+
 ### Run Tests
 
 ```bash
@@ -123,6 +132,7 @@ src/
 ├── hooks/              # Custom React hooks
 ├── pages/              # Route pages
 ├── prompts/            # AI prompt templates
+├── i18n/               # Translations (en.json, hi.json)
 ├── services/           # Core services (db, crypto, ocr, export)
 ├── types/              # TypeScript interfaces
 └── constants.ts        # Shared constants
@@ -153,6 +163,8 @@ The settings UI will automatically render your provider's config form.
 | Encryption | Web Crypto API (AES-256-GCM, PBKDF2) |
 | OCR | Tesseract.js v7 |
 | PWA | vite-plugin-pwa + Workbox |
+| i18n | react-i18next |
+| Linting | ESLint 9 + Prettier (80-char lines) |
 | Testing | Vitest |
 | Hosting | GitHub Pages (static) |
 
