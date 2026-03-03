@@ -1,9 +1,14 @@
 // HealthVault — History page
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getRecentScans, getRecentConversationSummaries } from '../services/db';
+import {
+  getRecentScans,
+  getRecentConversationSummaries,
+  startNewConversation,
+  saveConversation,
+} from '../services/db';
 import type { FoodScanRecord, ConversationSummary } from '../types';
 import VerdictCard from '../components/VerdictCard';
 import { verdictEmoji } from '../constants';
@@ -12,6 +17,7 @@ type Tab = 'scans' | 'chats';
 
 export default function History() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('scans');
   const [scans, setScans] = useState<FoodScanRecord[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -100,8 +106,37 @@ export default function History() {
                 </svg>
               </button>
               {expandedScan === scan.id && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
                   <VerdictCard verdict={scan.verdict} />
+                  <button
+                    onClick={async () => {
+                      const conv = await startNewConversation();
+                      const now = Date.now();
+                      const ingredientList =
+                        scan.ingredients.join(', ') ||
+                        'scanned food label';
+                      conv.title =
+                        `Scan: ${ingredientList}`.slice(0, 60);
+                      conv.messages = [
+                        {
+                          role: 'user',
+                          content: `Are these ingredients safe for me? ${ingredientList}`,
+                          timestamp: now,
+                        },
+                        {
+                          role: 'assistant',
+                          content: scan.verdict.summary,
+                          timestamp: now + 1,
+                        },
+                      ];
+                      conv.messageCount = 2;
+                      await saveConversation(conv);
+                      navigate(`/chat?conv=${conv.id}`);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm bg-surface-800 hover:bg-surface-700 border border-surface-700 text-surface-200 transition-colors"
+                  >
+                    {t('scanner.chatAboutThis')}
+                  </button>
                 </div>
               )}
             </div>
