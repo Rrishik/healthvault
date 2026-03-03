@@ -35,6 +35,13 @@ export default function VerdictCard({ verdict }: VerdictCardProps) {
         <p className="text-surface-200 text-sm flex-1">{verdict.summary}</p>
       </div>
 
+      {/* Ingredient source attribution */}
+      {verdict.ingredientSource && (
+        <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
+          <p className="text-xs text-blue-300">ℹ️ {verdict.ingredientSource}</p>
+        </div>
+      )}
+
       {/* Per-ingredient details */}
       <ul className="space-y-2">
         {verdict.details.map((d, i) => (

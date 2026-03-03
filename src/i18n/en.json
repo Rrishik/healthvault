@@ -11,7 +11,7 @@
       },
       "1": {
         "title": "Scan Food, Get Verdicts",
-        "description": "Type ingredients, upload a photo, or snap a food label. HealthVault tells you if something is safe, needs caution, or should be avoided — based on your specific health needs."
+        "description": "Type ingredients, upload a photo of a food label, or snap a picture of the food itself. HealthVault identifies ingredients and tells you if they're safe, need caution, or should be avoided — based on your specific health needs."
       },
       "2": {
         "title": "Why We Ask for Your Info",
@@ -95,19 +95,19 @@
   },
   "scanner": {
     "title": "Food Scanner",
-    "subtitle": "Enter ingredients or snap a photo of a food label to check if they are safe for you.",
+    "subtitle": "Enter ingredients, snap a food label, or take a photo of a food item to check if it's safe for you.",
     "type": "Type",
     "upload": "Upload",
     "camera": "Camera",
     "placeholder": "Enter ingredients separated by commas…\ne.g. sugar, citric acid, sodium benzoate",
     "analyze": "Analyze Ingredients",
     "analyzing": "Analyzing…",
-    "clickUpload": "Click to select a food label image",
-    "clickCamera": "Click to take a photo of a food label",
+    "clickUpload": "Click to select an image of a food item or ingredients label",
+    "clickCamera": "Click to take a photo of a food item or label",
     "readingLabel": "Reading label text…",
     "analyzingIngredients": "Analyzing ingredients…",
-    "chatAboutThis": "💬 Chat about this",
-    "imageWarning": "⚠️ Your current provider ({{name}}) doesn't support image analysis. Upload will fall back to basic text extraction (OCR), which may be less accurate."
+    "chatAboutThis": "💬 Chat about this",    "notFoodTitle": "🚫 That doesn't look like food",
+    "notFoodDesc": "Please upload a photo of a food item (e.g. a snack, dish, or beverage) or an ingredients label. We couldn't identify any food in this image.",    "imageWarning": "⚠️ Your current provider ({{name}}) doesn't support image analysis. Upload will fall back to basic text extraction (OCR), which may be less accurate."
   },
   "chat": {
     "title": "Health Chat",

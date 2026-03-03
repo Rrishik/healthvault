@@ -3,10 +3,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  SUPPORTED_LANGUAGES,
-  changeLanguage,
-} from '../i18n';
+import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 
 const SLIDE_ICONS = ['🛡️', '🍎', '🩺', '🔒', '💬', '🚀'];
 
@@ -16,12 +13,8 @@ export default function Landing() {
   const navigate = useNavigate();
   const isLast = current === SLIDE_ICONS.length - 1;
 
-  const currentLang = SUPPORTED_LANGUAGES.find(
-    (l) => l.code === i18n.language,
-  );
-  const nextLang = SUPPORTED_LANGUAGES.find(
-    (l) => l.code !== i18n.language,
-  );
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language);
+  const nextLang = SUPPORTED_LANGUAGES.find((l) => l.code !== i18n.language);
 
   const next = () => {
     if (isLast) {

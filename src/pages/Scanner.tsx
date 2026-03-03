@@ -57,6 +57,7 @@ export default function Scanner() {
   const [ingredients, setIngredients] = useState('');
   const [verdict, setVerdict] = useState<FoodVerdict | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [notFood, setNotFood] = useState(false);
   const [promptPreview, setPromptPreview] = useState<string | null>(null);
   const pendingSendRef = useRef<(() => Promise<void>) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +88,8 @@ export default function Scanner() {
   };
 
   const handleFile = async (file: File) => {
+    setNotFood(false);
+    setVerdict(null);
     // Try AI vision if supported, otherwise fall back to OCR
     const reader = new FileReader();
     reader.onerror = () => {
@@ -107,6 +110,11 @@ export default function Scanner() {
       const result = await analyzeImage(base64, mimeType);
       if (result) {
         console.log(LOG_PREFIX, 'Image scan: AI image analysis succeeded');
+        if (result.imageType === 'not_food') {
+          console.log(LOG_PREFIX, 'Image scan: not a food item');
+          setNotFood(true);
+          return;
+        }
         setVerdict(result);
         return;
       }
@@ -257,8 +265,20 @@ export default function Scanner() {
         </div>
       )}
 
+      {/* Not-food warning */}
+      {notFood && !loading && (
+        <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-lg p-4 space-y-2">
+          <p className="text-sm font-medium text-yellow-200">
+            {t('scanner.notFoodTitle')}
+          </p>
+          <p className="text-sm text-yellow-300/80">
+            {t('scanner.notFoodDesc')}
+          </p>
+        </div>
+      )}
+
       {/* Result */}
-      {verdict && !loading && (
+      {verdict && !loading && !notFood && (
         <>
           <VerdictCard verdict={verdict} />
           <button

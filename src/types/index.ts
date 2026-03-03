@@ -58,6 +58,10 @@ export interface FoodVerdict {
   summary: string;
   details: VerdictDetail[];
   alternatives?: string[];
+  /** Classifies what the image showed — only present for image-based scans */
+  imageType?: 'label' | 'food_item' | 'not_food';
+  /** Attribution for where ingredients were sourced (e.g. general knowledge) */
+  ingredientSource?: string;
 }
 
 export interface VerdictDetail {
