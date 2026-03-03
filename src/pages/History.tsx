@@ -85,7 +85,7 @@ export default function History() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-surface-200 truncate">
-                    {scan.ingredients.join(', ')}
+                    {scan.verdict.summary || scan.ingredients.join(', ')}
                   </p>
                   <p className="text-xs text-surface-500">
                     {new Date(scan.timestamp).toLocaleString()} · {scan.source}

@@ -2,8 +2,8 @@
 // Supports: camera capture, file upload, manual text entry, and OCR
 // Scan state lives in ScanContext so in-flight scans survive navigation.
 
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAppContext } from '../context/AppContext';
 import { useScanContext } from '../context/ScanContext';
@@ -31,10 +31,20 @@ export default function Scanner() {
     reset,
   } = useScanContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [promptPreview, setPromptPreview] = useState<string | null>(null);
   const pendingSendRef = useRef<(() => Promise<void>) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset scan state when navigating with ?new=1 (e.g. from Dashboard)
+  useEffect(() => {
+    if (searchParams.get('new')) {
+      reset();
+      setIngredients('');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, reset, setIngredients, setSearchParams]);
 
   const handleManualSubmit = async () => {
     if (!ingredients.trim()) return;

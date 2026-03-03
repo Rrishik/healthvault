@@ -55,15 +55,15 @@ export default function Dashboard() {
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
         <Link
-          to="/scanner"
+          to="/scanner?new=1"
           className="bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-xl p-4 transition-colors"
         >
           <div className="text-2xl mb-2">📷</div>
           <h3 className="text-sm font-medium text-surface-100">
-            {t('dashboard.scanFood')}
+            {t('dashboard.newFoodScan')}
           </h3>
           <p className="text-xs text-surface-400 mt-0.5">
-            {t('dashboard.scanFoodDesc')}
+            {t('dashboard.newFoodScanDesc')}
           </p>
         </Link>
         <Link
