@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useHealthProfile } from '../hooks/useHealthProfile';
 import { useSettings } from '../hooks/useSettings';
 import ProviderSetup from '../components/ProviderSetup';
+import CommunityWarning from '../components/CommunityWarning';
 import ChipSelector from '../components/ChipSelector';
 import TagInput from '../components/TagInput';
 import {
@@ -190,7 +191,7 @@ export default function Onboarding() {
   // ---------- Steps ----------
 
   const steps = [
-    // Step 0: AI Provider Setup
+    // Step 0: AI Provider Setup — two sections
     <div key="provider" className="space-y-4">
       <h2 className="text-xl font-semibold">
         {t('onboarding.connectProvider')}
@@ -198,25 +199,138 @@ export default function Onboarding() {
       <p className="text-surface-400 text-sm">
         {t('onboarding.connectProviderDesc')}
       </p>
-      <ProviderSetup
-        providers={providers}
-        selectedProviderId={selectedProvider}
-        onProviderChange={(id) => {
-          setSelectedProvider(id);
-          setConfigDraft({});
-          conditionsRequested.current = false;
-          lastContextConditions.current = '';
-          setConnectionVerified(false);
+
+      {/* Section 1: Community (Free) */}
+      <button
+        onClick={() => {
+          if (selectedProvider !== 'community') {
+            setSelectedProvider('community');
+            setConfigDraft({});
+            conditionsRequested.current = false;
+            lastContextConditions.current = '';
+            setConnectionVerified(false);
+          }
         }}
-        config={configDraft}
-        onConfigChange={(key, value) => {
-          setConfigDraft((prev) => ({ ...prev, [key]: value }));
-          conditionsRequested.current = false;
-          lastContextConditions.current = '';
-          setConnectionVerified(false);
+        className={`w-full text-left rounded-lg border p-4 transition-colors ${
+          selectedProvider === 'community'
+            ? 'border-primary-500 bg-primary-950/40'
+            : 'border-surface-600 bg-surface-800 hover:border-surface-500'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-surface-100">
+              {t('onboarding.communityTitle')}
+            </p>
+            <p className="text-xs text-surface-400 mt-0.5">
+              {t('onboarding.communityDesc')}
+            </p>
+          </div>
+          <div
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+              selectedProvider === 'community'
+                ? 'border-primary-500'
+                : 'border-surface-500'
+            }`}
+          >
+            {selectedProvider === 'community' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+            )}
+          </div>
+        </div>
+      </button>
+
+      {selectedProvider === 'community' && (
+        <div className="space-y-3 pl-1">
+          <CommunityWarning />
+          <ProviderSetup
+            providers={providers.filter((p) => p.id === 'community')}
+            selectedProviderId="community"
+            onProviderChange={() => {}}
+            config={configDraft}
+            onConfigChange={(key, value) => {
+              setConfigDraft((prev) => ({ ...prev, [key]: value }));
+              setConnectionVerified(false);
+            }}
+            onConnectionResult={(ok) => setConnectionVerified(ok)}
+          />
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-surface-700" />
+        <span className="text-xs text-surface-500 uppercase">
+          {t('onboarding.or')}
+        </span>
+        <div className="flex-1 h-px bg-surface-700" />
+      </div>
+
+      {/* Section 2: Bring Your Own */}
+      <button
+        onClick={() => {
+          if (selectedProvider === 'community' || selectedProvider === '') {
+            setSelectedProvider('');
+            setConfigDraft({});
+            conditionsRequested.current = false;
+            lastContextConditions.current = '';
+            setConnectionVerified(false);
+          }
         }}
-        onConnectionResult={(ok) => setConnectionVerified(ok)}
-      />
+        className={`w-full text-left rounded-lg border p-4 transition-colors ${
+          selectedProvider !== '' && selectedProvider !== 'community'
+            ? 'border-primary-500 bg-primary-950/40'
+            : 'border-surface-600 bg-surface-800 hover:border-surface-500'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-surface-100">
+              {t('onboarding.byopTitle')}
+            </p>
+            <p className="text-xs text-surface-400 mt-0.5">
+              {t('onboarding.byopDesc')}
+            </p>
+          </div>
+          <div
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+              selectedProvider !== '' && selectedProvider !== 'community'
+                ? 'border-primary-500'
+                : 'border-surface-500'
+            }`}
+          >
+            {selectedProvider !== '' && selectedProvider !== 'community' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+            )}
+          </div>
+        </div>
+      </button>
+
+      {selectedProvider !== 'community' && (
+        <div className="space-y-3 pl-1">
+          <ProviderSetup
+            providers={providers.filter((p) => p.id !== 'community')}
+            selectedProviderId={
+              selectedProvider === 'community' ? '' : selectedProvider
+            }
+            onProviderChange={(id) => {
+              setSelectedProvider(id);
+              setConfigDraft({});
+              conditionsRequested.current = false;
+              lastContextConditions.current = '';
+              setConnectionVerified(false);
+            }}
+            config={configDraft}
+            onConfigChange={(key, value) => {
+              setConfigDraft((prev) => ({ ...prev, [key]: value }));
+              conditionsRequested.current = false;
+              lastContextConditions.current = '';
+              setConnectionVerified(false);
+            }}
+            onConnectionResult={(ok) => setConnectionVerified(ok)}
+          />
+        </div>
+      )}
     </div>,
 
     // Step 1: About You (age, sex, height, weight)
