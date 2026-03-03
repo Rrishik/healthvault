@@ -7,25 +7,13 @@
     "slides": {
       "0": {
         "title": "Welcome to HealthVault",
-        "description": "Your personal health assistant that helps you make safer food choices and answers health questions — all personalized to you."
+        "description": "Your personal health assistant — scan food to check if it's safe for you, chat about nutrition and wellness, and get advice personalized to your conditions, allergies, and goals."
       },
       "1": {
-        "title": "Scan Food, Get Verdicts",
-        "description": "Type ingredients, upload a photo of a food label, or snap a picture of the food itself. HealthVault identifies ingredients and tells you if they're safe, need caution, or should be avoided — based on your specific health needs."
+        "title": "Private by Design",
+        "description": "We'll ask about your health to give personalized advice, but everything stays on your device. No accounts, no sign-ups, no cloud sync. Your data never leaves your browser."
       },
       "2": {
-        "title": "Why We Ask for Your Info",
-        "description": "To give you personalized advice, we'll ask about your conditions, allergies, medications, and dietary goals. A peanut allergy changes everything about a snack bar's safety rating."
-      },
-      "3": {
-        "title": "Your Data Never Leaves",
-        "description": "Everything is stored locally in your browser — not on any server. No accounts, no sign-ups, no cloud sync. Your health info stays on your device, period."
-      },
-      "4": {
-        "title": "Chat About Your Health",
-        "description": "Ask questions about nutrition, medications, or wellness. The AI uses your profile to give answers that actually apply to you, not generic advice."
-      },
-      "5": {
         "title": "Let's Set You Up",
         "description": "Next, we'll walk you through a quick setup: pick an AI provider (the free Community option works great) and optionally add your health details. Takes about 2 minutes."
       }
@@ -42,6 +30,8 @@
     "sex": "Sex",
     "healthConditions": "Health Conditions",
     "healthConditionsDesc": "Select any existing conditions you manage.",
+    "healthProfile": "Health Profile",
+    "healthProfileDesc": "Select conditions you manage and any known allergies.",
     "bodyMeasurements": "Body Measurements",
     "bodyMeasurementsDesc": "Optional — helps with nutrition and fitness recommendations.",
     "heightCm": "Height (cm)",
@@ -50,6 +40,8 @@
     "allergiesDesc": "Select known allergies or add your own.",
     "medications": "Medications",
     "medicationsDesc": "List any medications you're currently taking.",
+    "medsAndDiet": "Medications & Diet",
+    "medsAndDietDesc": "List your current medications and dietary preferences.",
     "dietaryPreferences": "Dietary Preferences",
     "dietaryPreferencesDesc": "Select any dietary preferences you follow.",
     "healthGoals": "Health Goals",
@@ -186,8 +178,8 @@
     "select": "Select a provider…",
     "saveConfig": "Save Config",
     "saved": "✓ Saved",
-    "establishing": "Establishing connection…",
-    "establishConnection": "Establish Secure Connection",
+    "establishing": "Verifying connection…",
+    "establishConnection": "Verify Connection",
     "connectionSuccess": "Connection successful!",
     "connectionFailed": "Connection failed. Check your credentials and try again."
   },

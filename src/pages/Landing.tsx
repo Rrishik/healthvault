@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, changeLanguage } from '../i18n';
 
-const SLIDE_ICONS = ['🛡️', '🍎', '🩺', '🔒', '💬', '🚀'];
+const SLIDE_ICONS = ['🛡️', '🔒', '🚀'];
 
 export default function Landing() {
   const { t, i18n } = useTranslation();

@@ -1,11 +1,12 @@
 // HealthVault — Onboarding page
 // Step 0: AI Provider setup (with Test Connection)
-// Steps 1–6: Profile entry with AI-powered suggestions
+// Steps 1–4: Profile entry with AI-powered suggestions
 //
 // Two-phase AI flow:
-//   Phase 1 (Test Connection) → locale-aware health conditions
-//   Phase 2 (Leave conditions step) → condition-aware suggestions for
-//           allergies, medications, dietary preferences, health goals
+//   Phase 1 (Next from About You step) → age/sex/locale-aware health conditions
+//   Phase 2 (Leave health profile step) → condition-aware suggestions for
+//           medications and health goals
+// Dietary preferences use a static list.
 
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -68,18 +69,29 @@ export default function Onboarding() {
   );
   const [connectionVerified, setConnectionVerified] = useState(false); // true after successful connection
 
-  const totalSteps = 8; // provider + 7 profile steps
+  const totalSteps = 5; // provider + 4 profile steps
 
-  // ---------- Phase 1: Use suggestions request as connection test ----------
-  const handleEstablishConnection = useCallback(async () => {
-    if (!selectedProvider) return;
+  // ---------- Phase 1: Fire when leaving Age & Sex step ----------
+  const handlePhase1Next = useCallback(async () => {
+    if (conditionsRequested.current) {
+      // Already fetched, just advance
+      setStep(2);
+      return;
+    }
+
     const prov = providers.find((p) => p.id === selectedProvider);
-    if (!prov) throw new Error('Provider not found');
+    if (!prov) {
+      setStep(2);
+      return;
+    }
 
     conditionsRequested.current = true;
     setConditionsLoading(true);
     try {
-      const result = await generatePhase1Suggestions(prov, configDraft);
+      const result = await generatePhase1Suggestions(prov, configDraft, {
+        ageRange,
+        sex,
+      });
       if (result) {
         setSuggestions((prev) => ({
           ...prev,
@@ -87,46 +99,59 @@ export default function Onboarding() {
           allergies: result.allergies,
         }));
       }
-      setConnectionVerified(true);
-    } catch (e) {
+    } catch {
       conditionsRequested.current = false;
-      throw e; // re-throw so ProviderSetup shows failure state
+      // Swallow — fallback suggestions are already loaded
     } finally {
       setConditionsLoading(false);
+      setStep(2);
     }
-  }, [selectedProvider, providers, configDraft]);
+  }, [selectedProvider, providers, configDraft, ageRange, sex]);
 
   // ---------- Phase 2: Fire contextual suggestions when leaving conditions step ----------
-  const fireContextualSuggestions = useCallback(() => {
-    if (conditions.length === 0) return; // nothing to contextualize
+  const handlePhase2Next = useCallback(async () => {
+    if (conditions.length === 0) {
+      setStep(3);
+      return;
+    }
     const key = [...conditions].sort().join('|'); // dedup key
-    if (key === lastContextConditions.current) return; // unchanged
+    if (key === lastContextConditions.current) {
+      // Already fetched for these conditions, just advance
+      setStep(3);
+      return;
+    }
     lastContextConditions.current = key;
 
     const prov = providers.find((p) => p.id === selectedProvider);
-    if (!prov) return;
+    if (!prov) {
+      setStep(3);
+      return;
+    }
 
     setContextualLoading(true);
-    generateContextualSuggestions(prov, configDraft, conditions).then(
-      (result) => {
-        if (result) {
-          setSuggestions((prev) => ({
-            ...prev,
-            // Merge: keep any items the user already selected + new AI options
-            medications: [...new Set([...medications, ...result.medications])],
-            dietaryPreferences: [
-              ...new Set([...dietaryPreferences, ...result.dietaryPreferences]),
-            ],
-            healthGoals: [...new Set([...healthGoals, ...result.healthGoals])],
-          }));
-        }
-        setContextualLoading(false);
-      },
-    );
+    try {
+      const result = await generateContextualSuggestions(
+        prov,
+        configDraft,
+        conditions,
+      );
+      if (result) {
+        setSuggestions((prev) => ({
+          ...prev,
+          // Merge: keep any items the user already selected + new AI options
+          medications: [...new Set([...medications, ...result.medications])],
+          healthGoals: [...new Set([...healthGoals, ...result.healthGoals])],
+        }));
+      }
+    } catch {
+      // Swallow — fallback suggestions are already loaded
+    } finally {
+      setContextualLoading(false);
+      setStep(3);
+    }
   }, [
     conditions,
     medications,
-    dietaryPreferences,
     healthGoals,
     selectedProvider,
     configDraft,
@@ -190,12 +215,12 @@ export default function Onboarding() {
           lastContextConditions.current = '';
           setConnectionVerified(false);
         }}
-        onTestConnection={handleEstablishConnection}
+        onConnectionResult={(ok) => setConnectionVerified(ok)}
       />
     </div>,
 
-    // Step 1: Age & Sex (buffer for Phase 1 condition suggestions)
-    <div key="age-sex" className="space-y-4">
+    // Step 1: About You (age, sex, height, weight)
+    <div key="about-you" className="space-y-4">
       <h2 className="text-xl font-semibold">{t('onboarding.aboutYou')}</h2>
       <p className="text-surface-400 text-sm">{t('onboarding.aboutYouDesc')}</p>
       <div className="space-y-3">
@@ -234,154 +259,141 @@ export default function Onboarding() {
             })}
           </div>
         </div>
-      </div>
-    </div>,
-
-    // Step 2: Health Conditions (Phase 1 results should be ready)
-    <div key="conditions" className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {t('onboarding.healthConditions')}
-      </h2>
-      <p className="text-surface-400 text-sm">
-        {t('onboarding.healthConditionsDesc')}
-      </p>
-      <ChipSelector
-        options={suggestions.conditions}
-        selected={conditions}
-        onChange={setConditions}
-        loading={conditionsLoading}
-      />
-      <TagInput
-        tags={conditions.filter((c) => !suggestions.conditions.includes(c))}
-        onChange={(custom) =>
-          setConditions([
-            ...conditions.filter((c) => suggestions.conditions.includes(c)),
-            ...custom,
-          ])
-        }
-        placeholder={t('onboarding.addCondition')}
-      />
-    </div>,
-
-    // Step 3: Height & Weight (buffer for Phase 2 contextual suggestions)
-    <div key="height-weight" className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {t('onboarding.bodyMeasurements')}
-      </h2>
-      <p className="text-surface-400 text-sm">
-        {t('onboarding.bodyMeasurementsDesc')}
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm text-surface-300 block mb-1">
-            {t('onboarding.heightCm')}
-          </label>
-          <input
-            type="number"
-            value={heightCm}
-            onChange={(e) => setHeightCm(e.target.value)}
-            placeholder="170"
-            className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
-          />
-        </div>
-        <div>
-          <label className="text-sm text-surface-300 block mb-1">
-            {t('onboarding.weightKg')}
-          </label>
-          <input
-            type="number"
-            value={weightKg}
-            onChange={(e) => setWeightKg(e.target.value)}
-            placeholder="70"
-            className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
-          />
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <div>
+            <label className="text-sm text-surface-300 block mb-1">
+              {t('onboarding.heightCm')}
+            </label>
+            <input
+              type="number"
+              value={heightCm}
+              onChange={(e) => setHeightCm(e.target.value)}
+              placeholder="170"
+              className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-surface-300 block mb-1">
+              {t('onboarding.weightKg')}
+            </label>
+            <input
+              type="number"
+              value={weightKg}
+              onChange={(e) => setWeightKg(e.target.value)}
+              placeholder="70"
+              className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500"
+            />
+          </div>
         </div>
       </div>
     </div>,
 
-    // Step 4: Allergies
-    <div key="allergies" className="space-y-4">
-      <h2 className="text-xl font-semibold">{t('onboarding.allergies')}</h2>
+    // Step 2: Health Profile (conditions + allergies)
+    <div key="health-profile" className="space-y-4">
+      <h2 className="text-xl font-semibold">{t('onboarding.healthProfile')}</h2>
       <p className="text-surface-400 text-sm">
-        {t('onboarding.allergiesDesc')}
+        {t('onboarding.healthProfileDesc')}
       </p>
-      <ChipSelector
-        options={suggestions.allergies}
-        selected={allergies}
-        onChange={setAllergies}
-        loading={conditionsLoading}
-      />
-      <TagInput
-        tags={allergies.filter((a) => !suggestions.allergies.includes(a))}
-        onChange={(custom) =>
-          setAllergies([
-            ...allergies.filter((a) => suggestions.allergies.includes(a)),
-            ...custom,
-          ])
-        }
-        placeholder={t('onboarding.addAllergy')}
-      />
+      <div className="space-y-2">
+        <label className="text-sm text-surface-300 block">
+          {t('onboarding.healthConditions')}
+        </label>
+        <ChipSelector
+          options={suggestions.conditions}
+          selected={conditions}
+          onChange={setConditions}
+          loading={conditionsLoading}
+        />
+        <TagInput
+          tags={conditions.filter((c) => !suggestions.conditions.includes(c))}
+          onChange={(custom) =>
+            setConditions([
+              ...conditions.filter((c) => suggestions.conditions.includes(c)),
+              ...custom,
+            ])
+          }
+          placeholder={t('onboarding.addCondition')}
+        />
+      </div>
+      <div className="border-t border-surface-700 pt-4 space-y-2">
+        <label className="text-sm text-surface-300 block">
+          {t('onboarding.allergies')}
+        </label>
+        <ChipSelector
+          options={suggestions.allergies}
+          selected={allergies}
+          onChange={setAllergies}
+          loading={conditionsLoading}
+        />
+        <TagInput
+          tags={allergies.filter((a) => !suggestions.allergies.includes(a))}
+          onChange={(custom) =>
+            setAllergies([
+              ...allergies.filter((a) => suggestions.allergies.includes(a)),
+              ...custom,
+            ])
+          }
+          placeholder={t('onboarding.addAllergy')}
+        />
+      </div>
     </div>,
 
-    // Step 5: Medications
-    <div key="medications" className="space-y-4">
-      <h2 className="text-xl font-semibold">{t('onboarding.medications')}</h2>
+    // Step 3: Medications & Diet
+    <div key="meds-diet" className="space-y-4">
+      <h2 className="text-xl font-semibold">{t('onboarding.medsAndDiet')}</h2>
       <p className="text-surface-400 text-sm">
-        {t('onboarding.medicationsDesc')}
+        {t('onboarding.medsAndDietDesc')}
       </p>
-      {suggestions.medications.length > 0 && (
-        <>
+      <div className="space-y-2">
+        <label className="text-sm text-surface-300 block">
+          {t('onboarding.medications')}
+        </label>
+        {suggestions.medications.length > 0 && (
           <ChipSelector
             options={suggestions.medications}
             selected={medications}
             onChange={setMedications}
             loading={contextualLoading}
           />
-        </>
-      )}
-      <TagInput
-        tags={medications.filter((m) => !suggestions.medications.includes(m))}
-        onChange={(custom) =>
-          setMedications([
-            ...medications.filter((m) => suggestions.medications.includes(m)),
-            ...custom,
-          ])
-        }
-        placeholder={t('onboarding.addMedication')}
-      />
-    </div>,
-
-    // Step 6: Diet
-    <div key="diet" className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {t('onboarding.dietaryPreferences')}
-      </h2>
-      <p className="text-surface-400 text-sm">
-        {t('onboarding.dietaryPreferencesDesc')}
-      </p>
-      <ChipSelector
-        options={suggestions.dietaryPreferences}
-        selected={dietaryPreferences}
-        onChange={setDietaryPreferences}
-        loading={contextualLoading}
-      />
-      <TagInput
-        tags={dietaryPreferences.filter(
-          (d) => !suggestions.dietaryPreferences.includes(d),
         )}
-        onChange={(custom) =>
-          setDietaryPreferences([
-            ...dietaryPreferences.filter((d) =>
-              suggestions.dietaryPreferences.includes(d),
-            ),
-            ...custom,
-          ])
-        }
-        placeholder={t('onboarding.addPreference')}
-      />
+        <TagInput
+          tags={medications.filter((m) => !suggestions.medications.includes(m))}
+          onChange={(custom) =>
+            setMedications([
+              ...medications.filter((m) => suggestions.medications.includes(m)),
+              ...custom,
+            ])
+          }
+          placeholder={t('onboarding.addMedication')}
+        />
+      </div>
+      <div className="border-t border-surface-700 pt-4 space-y-2">
+        <label className="text-sm text-surface-300 block">
+          {t('onboarding.dietaryPreferences')}
+        </label>
+        <ChipSelector
+          options={suggestions.dietaryPreferences}
+          selected={dietaryPreferences}
+          onChange={setDietaryPreferences}
+        />
+        <TagInput
+          tags={dietaryPreferences.filter(
+            (d) => !suggestions.dietaryPreferences.includes(d),
+          )}
+          onChange={(custom) =>
+            setDietaryPreferences([
+              ...dietaryPreferences.filter((d) =>
+                suggestions.dietaryPreferences.includes(d),
+              ),
+              ...custom,
+            ])
+          }
+          placeholder={t('onboarding.addPreference')}
+        />
+      </div>
     </div>,
 
-    // Step 7: Goals
+    // Step 4: Health Goals
     <div key="goals" className="space-y-4">
       <h2 className="text-xl font-semibold">{t('onboarding.healthGoals')}</h2>
       <p className="text-surface-400 text-sm">
@@ -443,14 +455,34 @@ export default function Onboarding() {
         {step < totalSteps - 1 ? (
           <button
             onClick={() => {
-              // Fire Phase 2 when leaving the conditions step (step 2)
-              if (step === 2) fireContextualSuggestions();
+              // Fire Phase 1 when leaving the about you step (step 1)
+              if (step === 1) {
+                handlePhase1Next();
+                return;
+              }
+              // Fire Phase 2 when leaving the health profile step (step 2)
+              if (step === 2) {
+                handlePhase2Next();
+                return;
+              }
               setStep(step + 1);
             }}
-            disabled={step === 0 && !connectionVerified}
-            className="flex-1 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors"
+            disabled={
+              (step === 0 && !connectionVerified) ||
+              conditionsLoading ||
+              contextualLoading
+            }
+            className="flex-1 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
           >
-            {t('onboarding.next')}
+            {(conditionsLoading && step === 1) ||
+            (contextualLoading && step === 2) ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                {t('onboarding.next')}
+              </>
+            ) : (
+              t('onboarding.next')
+            )}
           </button>
         ) : (
           <button

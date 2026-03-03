@@ -1,7 +1,8 @@
 // HealthVault — Onboarding suggestion engine
-// Phase 1: On Test Connection → locale-aware health conditions + allergies.
+// Phase 1: On "Next" from About You step → age/sex/locale-aware conditions + allergies.
 // Phase 2: After user selects conditions → contextual suggestions for
-//          medications, dietary preferences, and health goals.
+//          medications and health goals.
+// Dietary preferences use a static list (not AI-generated).
 // Falls back to hardcoded defaults if the AI call fails or times out.
 
 import type { AIProvider } from '../adapters/types';
@@ -25,7 +26,6 @@ export interface OnboardingSuggestions {
 /** Downstream-only subset returned by Phase 2 */
 export interface ContextualSuggestions {
   medications: string[];
-  dietaryPreferences: string[];
   healthGoals: string[];
 }
 
@@ -63,6 +63,24 @@ const FALLBACK_ALLERGIES: string[] = [
   'Gluten',
 ];
 
+const STATIC_DIETARY_PREFERENCES: string[] = [
+  'Vegetarian',
+  'Vegan',
+  'Non-Vegetarian',
+  'Pescatarian',
+  'Eggetarian',
+  'Keto',
+  'Paleo',
+  'Mediterranean',
+  'Halal',
+  'Kosher',
+  'Gluten-Free',
+  'Dairy-Free',
+  'Low-Sodium',
+  'Low-Sugar',
+  'Jain',
+];
+
 const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
   medications: [
     'Metformin',
@@ -76,27 +94,17 @@ const FALLBACK_CONTEXTUAL: ContextualSuggestions = {
     'Cetirizine',
     'Montelukast',
   ],
-  dietaryPreferences: [
-    'Vegetarian',
-    'Vegan',
-    'Keto',
-    'Paleo',
-    'Halal',
-    'Kosher',
-    'Gluten-Free',
-    'Dairy-Free',
-    'Low-Sodium',
-    'Low-Sugar',
-  ],
   healthGoals: [
     'Lose Weight',
     'Gain Muscle',
+    'Improve Sleep',
+    'Boost Immunity',
+    'Manage Stress',
+    'Increase Energy',
     'Improve Heart Health',
-    'Manage Blood Sugar',
-    'Reduce Inflammation',
-    'Improve Gut Health',
-    'Better Sleep',
-    'More Energy',
+    'Build Endurance',
+    'Eat Healthier',
+    'Stay Hydrated',
   ],
 };
 
@@ -105,11 +113,8 @@ export function getFallbackSuggestions(): OnboardingSuggestions {
     conditions: FALLBACK_CONDITIONS,
     allergies: FALLBACK_ALLERGIES,
     ...FALLBACK_CONTEXTUAL,
+    dietaryPreferences: STATIC_DIETARY_PREFERENCES,
   };
-}
-
-export function getFallbackContextual(): ContextualSuggestions {
-  return FALLBACK_CONTEXTUAL;
 }
 
 // ---------- Locale helpers ----------
@@ -123,15 +128,18 @@ function getLocaleInfo(): { locale: string; timezone: string } {
 
 // ---------- AI-powered generation ----------
 
-// Phase 1: conditions + allergies (both locale-based)
-const PHASE1_PROMPT = `Based on my locale and region, suggest:
+// Phase 1: conditions + allergies (locale + demographics)
+const PHASE1_PROMPT = `Based on my locale, region, and demographics, suggest:
 1. Common chronic or long-term health conditions that people regularly manage and track
 2. Common food allergens and sensitivities in this region
 
 USER LOCALE: {locale}
 USER TIMEZONE: {timezone}
+AGE RANGE: {ageRange}
+SEX: {sex}
 
-For conditions: only include ongoing lifestyle or chronic conditions (e.g. diabetes, hypertension, asthma, PCOS).
+For conditions: only include ongoing lifestyle or chronic conditions relevant to this demographic (e.g. diabetes, hypertension, asthma, PCOS).
+Tailor suggestions to the user's age range and sex where applicable.
 Do NOT include acute, one-time, or short-term illnesses (e.g. dengue, flu, food poisoning).
 
 For allergies: include common food allergens and environmental sensitivities typical in this region.
@@ -149,11 +157,10 @@ USER TIMEZONE: {timezone}
 
 Based on these conditions and my locale/region, suggest relevant items for each category:
 - Common medications (use regional brand names where possible)
-- Dietary preferences: actual diet types or lifestyle choices (e.g. Vegetarian, Vegan, Non-Vegetarian, Eggitarian, Keto, Low-Sodium, Gluten-Free, Halal, Kosher). Do NOT list specific nutrients or foods.
-- Health goals appropriate for someone with these conditions
+- Health goals: broad, actionable category-level goals (e.g. Gain Muscle, Improve Sleep, Lose Weight, Manage Stress, Boost Immunity). NOT condition-specific clinical targets.
 
 Put your entire response in the "answer" field as a JSON string containing this structure:
-{"medications":["..."],"dietaryPreferences":["..."],"healthGoals":["..."]}
+{"medications":["..."],"healthGoals":["..."]}
 
 Each category should have 8-12 short items (1-4 words each).`;
 
@@ -206,11 +213,12 @@ let phase1InFlight: Promise<Phase1Suggestions | null> | null = null;
 export async function generatePhase1Suggestions(
   provider: AIProvider,
   config: Record<string, string>,
+  demographics?: { ageRange?: string; sex?: string },
 ): Promise<Phase1Suggestions | null> {
   // Return existing in-flight promise if one is active
   if (phase1InFlight) return phase1InFlight;
 
-  phase1InFlight = _generatePhase1(provider, config);
+  phase1InFlight = _generatePhase1(provider, config, demographics);
   try {
     return await phase1InFlight;
   } finally {
@@ -221,13 +229,14 @@ export async function generatePhase1Suggestions(
 async function _generatePhase1(
   provider: AIProvider,
   config: Record<string, string>,
+  demographics?: { ageRange?: string; sex?: string },
 ): Promise<Phase1Suggestions | null> {
   try {
     const { locale, timezone } = getLocaleInfo();
-    const prompt = PHASE1_PROMPT.replace('{locale}', locale).replace(
-      '{timezone}',
-      timezone,
-    );
+    const prompt = PHASE1_PROMPT.replace('{locale}', locale)
+      .replace('{timezone}', timezone)
+      .replace('{ageRange}', demographics?.ageRange || 'Not specified')
+      .replace('{sex}', demographics?.sex || 'Not specified');
 
     const result = await withTimeout(
       provider.answerHealthQuery(
@@ -266,10 +275,6 @@ async function _generatePhase1(
     };
   } catch (err) {
     console.warn(`${LOG_PREFIX} Failed to generate Phase 1 suggestions`, err);
-    // Re-throw auth errors so the connection test shows failure
-    if (err instanceof Error && /40[13]/.test(err.message)) {
-      throw err;
-    }
     return null;
   }
 }
@@ -278,7 +283,7 @@ async function _generatePhase1(
 
 /**
  * Call the AI provider to generate condition-aware suggestions for downstream
- * onboarding steps (medications, dietary preferences, health goals).
+ * onboarding steps (medications and health goals).
  * Returns null on failure (caller keeps existing suggestions/fallbacks).
  * Enforces a 15-second timeout.
  */
@@ -319,7 +324,6 @@ export async function generateContextualSuggestions(
     if (
       !parsed ||
       !Array.isArray(parsed.medications) ||
-      !Array.isArray(parsed.dietaryPreferences) ||
       !Array.isArray(parsed.healthGoals)
     ) {
       console.warn(`${LOG_PREFIX} Invalid contextual suggestions shape`);
@@ -330,7 +334,6 @@ export async function generateContextualSuggestions(
 
     return {
       medications: sanitise(parsed.medications),
-      dietaryPreferences: sanitise(parsed.dietaryPreferences),
       healthGoals: sanitise(parsed.healthGoals),
     };
   } catch (err) {
@@ -340,16 +343,4 @@ export async function generateContextualSuggestions(
     );
     return null;
   }
-}
-
-// ---------- Legacy wrapper (kept for backward compat if needed) ----------
-
-/** @deprecated Use generatePhase1Suggestions + generateContextualSuggestions */
-export async function generateOnboardingSuggestions(
-  provider: AIProvider,
-  config: Record<string, string>,
-): Promise<OnboardingSuggestions | null> {
-  const phase1 = await generatePhase1Suggestions(provider, config);
-  if (!phase1) return null;
-  return { ...phase1, ...getFallbackContextual() };
 }
