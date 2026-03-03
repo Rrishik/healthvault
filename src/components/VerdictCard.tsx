@@ -88,7 +88,15 @@ export default function VerdictCard({
                 <NutrientRow key={i} nutrient={n} />
               ))}
               <p className="text-[10px] text-surface-500 pt-2 border-t border-surface-700/50">
-                {t('nutrition.source')}
+                {t('nutrition.source')}{' '}
+                <a
+                  href="https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-400 underline"
+                >
+                  FDA Daily Values
+                </a>
               </p>
             </div>
           )}
@@ -151,9 +159,21 @@ function dvBarColor(pct: number): string {
 }
 
 function NutrientRow({ nutrient }: { nutrient: NutrientWithDV }) {
-  const isMacro = [
+  /** Sub-nutrients that should be indented under their parent */
+  const isSubNutrient = [
+    'saturated fat',
+    'trans fat',
+    'dietary fiber',
+    'total sugars',
+    'added sugars',
+  ].includes(nutrient.nutrient.toLowerCase());
+
+  /** Top-level bold nutrients (major headings on a real label) */
+  const isBold = [
     'calories',
     'total fat',
+    'cholesterol',
+    'sodium',
     'total carbohydrate',
     'protein',
   ].includes(nutrient.nutrient.toLowerCase());
@@ -161,7 +181,7 @@ function NutrientRow({ nutrient }: { nutrient: NutrientWithDV }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span
-        className={`${isMacro ? 'font-semibold' : 'pl-3'} text-surface-200 w-32 shrink-0 truncate`}
+        className={`${isSubNutrient ? 'pl-3' : ''} ${isBold ? 'font-semibold' : ''} text-surface-200 w-32 shrink-0 truncate`}
       >
         {nutrient.nutrient}
       </span>

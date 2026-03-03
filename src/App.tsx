@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { ScanProvider } from './context/ScanContext';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -48,7 +49,9 @@ function AppRoutes() {
 function App() {
   return (
     <AppProvider>
-      <AppRoutes />
+      <ScanProvider>
+        <AppRoutes />
+      </ScanProvider>
     </AppProvider>
   );
 }
