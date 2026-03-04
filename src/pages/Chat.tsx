@@ -107,11 +107,21 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeConvRef = useRef<Conversation | null>(null);
 
+  const pendingQueryRef = useRef<string | null>(null);
+
   // Load a specific conversation (from URL param) or the most recent
   useEffect(() => {
     const convId = searchParams.get('conv');
     const isNew = searchParams.get('new');
-    if (isNew) {
+    const queryParam = searchParams.get('q');
+
+    if (queryParam) {
+      // Start a fresh chat and auto-send the query
+      activeConvRef.current = null;
+      setMessages([]);
+      pendingQueryRef.current = queryParam;
+      setSearchParams({}, { replace: true });
+    } else if (isNew) {
       // Start fresh — don't load any previous conversation
       activeConvRef.current = null;
       setMessages([]);
@@ -204,6 +214,16 @@ export default function Chat() {
       }
     }
   };
+
+  // Auto-send pending query from ?q= param
+  useEffect(() => {
+    if (pendingQueryRef.current) {
+      const query = pendingQueryRef.current;
+      pendingQueryRef.current = null;
+      executeSend(query);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSend = async () => {
     const query = input.trim();
