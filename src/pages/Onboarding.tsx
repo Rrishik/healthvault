@@ -38,6 +38,9 @@ export default function Onboarding() {
   // Provider state
   const [selectedProvider, setSelectedProvider] = useState('');
   const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
+  const [providerMode, setProviderMode] = useState<
+    'none' | 'community' | 'byop'
+  >('none');
 
   // AI suggestions state
   const [suggestions, setSuggestions] = useState<OnboardingSuggestions>(
@@ -203,16 +206,15 @@ export default function Onboarding() {
       {/* Section 1: Community (Free) */}
       <button
         onClick={() => {
-          if (selectedProvider !== 'community') {
-            setSelectedProvider('community');
-            setConfigDraft({});
-            conditionsRequested.current = false;
-            lastContextConditions.current = '';
-            setConnectionVerified(false);
-          }
+          setProviderMode('community');
+          setSelectedProvider('community');
+          setConfigDraft({});
+          conditionsRequested.current = false;
+          lastContextConditions.current = '';
+          setConnectionVerified(false);
         }}
         className={`w-full text-left rounded-lg border p-4 transition-colors ${
-          selectedProvider === 'community'
+          providerMode === 'community'
             ? 'border-primary-500 bg-primary-950/40'
             : 'border-surface-600 bg-surface-800 hover:border-surface-500'
         }`}
@@ -228,25 +230,26 @@ export default function Onboarding() {
           </div>
           <div
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-              selectedProvider === 'community'
+              providerMode === 'community'
                 ? 'border-primary-500'
                 : 'border-surface-500'
             }`}
           >
-            {selectedProvider === 'community' && (
+            {providerMode === 'community' && (
               <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
             )}
           </div>
         </div>
       </button>
 
-      {selectedProvider === 'community' && (
+      {providerMode === 'community' && (
         <div className="space-y-3 pl-1">
           <CommunityWarning />
           <ProviderSetup
             providers={providers.filter((p) => p.id === 'community')}
             selectedProviderId="community"
             onProviderChange={() => {}}
+            hideProviderSelect
             config={configDraft}
             onConfigChange={(key, value) => {
               setConfigDraft((prev) => ({ ...prev, [key]: value }));
@@ -269,16 +272,15 @@ export default function Onboarding() {
       {/* Section 2: Bring Your Own */}
       <button
         onClick={() => {
-          if (selectedProvider === 'community' || selectedProvider === '') {
-            setSelectedProvider('');
-            setConfigDraft({});
-            conditionsRequested.current = false;
-            lastContextConditions.current = '';
-            setConnectionVerified(false);
-          }
+          setProviderMode('byop');
+          setSelectedProvider('');
+          setConfigDraft({});
+          conditionsRequested.current = false;
+          lastContextConditions.current = '';
+          setConnectionVerified(false);
         }}
         className={`w-full text-left rounded-lg border p-4 transition-colors ${
-          selectedProvider !== '' && selectedProvider !== 'community'
+          providerMode === 'byop'
             ? 'border-primary-500 bg-primary-950/40'
             : 'border-surface-600 bg-surface-800 hover:border-surface-500'
         }`}
@@ -294,25 +296,23 @@ export default function Onboarding() {
           </div>
           <div
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-              selectedProvider !== '' && selectedProvider !== 'community'
+              providerMode === 'byop'
                 ? 'border-primary-500'
                 : 'border-surface-500'
             }`}
           >
-            {selectedProvider !== '' && selectedProvider !== 'community' && (
+            {providerMode === 'byop' && (
               <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
             )}
           </div>
         </div>
       </button>
 
-      {selectedProvider !== 'community' && (
+      {providerMode === 'byop' && (
         <div className="space-y-3 pl-1">
           <ProviderSetup
             providers={providers.filter((p) => p.id !== 'community')}
-            selectedProviderId={
-              selectedProvider === 'community' ? '' : selectedProvider
-            }
+            selectedProviderId={selectedProvider}
             onProviderChange={(id) => {
               setSelectedProvider(id);
               setConfigDraft({});

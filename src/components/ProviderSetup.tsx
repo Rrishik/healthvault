@@ -20,6 +20,8 @@ interface ProviderSetupProps {
   onConnectionResult?: (ok: boolean) => void | Promise<void>;
   /** Optional override for the test connection logic (replaces validateConfig call) */
   onTestConnection?: () => Promise<void>;
+  /** Hide the provider dropdown (used when provider is already chosen via radio cards) */
+  hideProviderSelect?: boolean;
 }
 
 export default function ProviderSetup({
@@ -32,6 +34,7 @@ export default function ProviderSetup({
   configSaved,
   onConnectionResult,
   onTestConnection,
+  hideProviderSelect,
 }: ProviderSetupProps) {
   const { t } = useTranslation();
   const [validating, setValidating] = useState(false);
@@ -69,28 +72,30 @@ export default function ProviderSetup({
   return (
     <div className="space-y-4">
       {/* Provider select */}
-      <div>
-        <label className="text-sm text-surface-300 block mb-1">
-          {t('provider.label')}
-        </label>
-        <select
-          value={selectedProviderId}
-          onChange={(e) => handleProviderSwitch(e.target.value)}
-          className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-primary-500"
-        >
-          <option value="">{t('provider.select')}</option>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!hideProviderSelect && (
+        <div>
+          <label className="text-sm text-surface-300 block mb-1">
+            {t('provider.label')}
+          </label>
+          <select
+            value={selectedProviderId}
+            onChange={(e) => handleProviderSwitch(e.target.value)}
+            className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-primary-500"
+          >
+            <option value="">{t('provider.select')}</option>
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {selectedProviderId && (
         <>
           {/* Community warning */}
-          {selectedProviderId === 'community' && <CommunityWarning />}
+          {!hideProviderSelect && selectedProviderId === 'community' && <CommunityWarning />}
 
           {/* Config fields */}
           <ConfigFieldRenderer
