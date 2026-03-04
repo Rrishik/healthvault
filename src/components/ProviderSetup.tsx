@@ -95,7 +95,9 @@ export default function ProviderSetup({
       {selectedProviderId && (
         <>
           {/* Community warning */}
-          {!hideProviderSelect && selectedProviderId === 'community' && <CommunityWarning />}
+          {!hideProviderSelect && selectedProviderId === 'community' && (
+            <CommunityWarning />
+          )}
 
           {/* Config fields */}
           <ConfigFieldRenderer
