@@ -181,10 +181,12 @@ export default function Chat() {
       content: query,
       timestamp: Date.now(),
     };
+    // Capture current messages before optimistic update
+    const currentMessages = messages;
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
-    const history = messages.map((m) => ({
+    const history = [...currentMessages, userMsg].map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -196,7 +198,7 @@ export default function Chat() {
         content: response.answer,
         timestamp: Date.now(),
       };
-      const updatedMessages = [...messages, userMsg, assistantMsg];
+      const updatedMessages = [...currentMessages, userMsg, assistantMsg];
       setMessages(updatedMessages);
       await persistMessages(updatedMessages);
 

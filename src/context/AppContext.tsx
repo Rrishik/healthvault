@@ -18,6 +18,7 @@ import {
 } from '../services/db';
 import { encryptConfigData, decryptConfigData } from '../services/crypto';
 import { generateChatStarters } from '../services/starters';
+import { clearGoalTipsCache } from '../services/goal-tips';
 // Import adapters so they self-register before we use the registry
 import '../adapters/openai';
 import '../adapters/gemini';
@@ -115,6 +116,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await dbSaveProfile(patch);
       const fresh = await getProfile();
       setProfile(fresh ?? null);
+
+      // Invalidate cached goal tips so they regenerate with the new profile
+      clearGoalTipsCache();
 
       // Fire-and-forget: regenerate AI chat starters in the background
       if (provider && settings) {
