@@ -1,0 +1,1963 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Under the Model | The launch-day mystery</title>
+    <meta
+      name="description"
+      content="An interactive AI engineering story about prefill, decode, KV cache, and why a model that fits on one GPU may not fit the traffic."
+    />
+    <link
+      rel="canonical"
+      href="https://healthvault.online/chapters/the-launch-day-mystery/"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="The launch-day mystery | Under the Model"
+    />
+    <meta
+      property="og:description"
+      content="The model fits. Why doesn't the traffic? Explore GPU memory, prefill, decode, and KV cache through a launch-day story."
+    />
+    <meta
+      property="og:url"
+      content="https://healthvault.online/chapters/the-launch-day-mystery/"
+    />
+    <meta property="article:published_time" content="2026-09-07" />
+    <script>
+      (() => {
+        const param = new URLSearchParams(window.location.search).get(
+          'scoutTheme',
+        );
+        const theme =
+          param ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --cp-bg: #f7f4ef;
+        --cp-bg-elevated: #fcfbf8;
+        --cp-surface: #ffffff;
+        --cp-surface-soft: #f5f5f5;
+        --cp-border: #dedede;
+        --cp-border-strong: #919191;
+        --cp-text: #242424;
+        --cp-text-muted: #5c5c5c;
+        --cp-text-soft: #6f6f6f;
+        --cp-accent: #b11f4b;
+        --cp-accent-hover: #9a1a41;
+        --cp-accent-soft: rgba(177, 31, 75, 0.08);
+        --cp-accent-fg: #ffffff;
+        --cp-success: #16a34a;
+        --cp-danger: #dc2626;
+        --cp-warning: #f59e0b;
+        --cp-link: #0078d4;
+        --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+        --cp-overlay: rgba(255, 255, 255, 0.8);
+        --cp-panel: rgba(255, 255, 255, 0.86);
+        --cp-panel-strong: rgba(255, 255, 255, 0.96);
+        --cp-sheen: rgba(255, 255, 255, 0.55);
+        --cp-highlight: rgba(177, 31, 75, 0.12);
+      }
+      html[data-theme='dark'] {
+        color-scheme: dark;
+        --cp-bg: #3d3b3a;
+        --cp-bg-elevated: #343231;
+        --cp-surface: #292929;
+        --cp-surface-soft: #2e2e2e;
+        --cp-border: #474747;
+        --cp-border-strong: #5f5f5f;
+        --cp-text: #dedede;
+        --cp-text-muted: #919191;
+        --cp-text-soft: #b0b0b0;
+        --cp-accent: #fd8ea1;
+        --cp-accent-hover: #fb7b91;
+        --cp-accent-fg: #1a1a1a;
+        --cp-accent-soft: rgba(253, 142, 161, 0.14);
+        --cp-success: #4ade80;
+        --cp-danger: #f87171;
+        --cp-warning: #fbbf24;
+        --cp-link: #4da6ff;
+        --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+        --cp-overlay: rgba(41, 41, 41, 0.88);
+        --cp-panel: rgba(41, 41, 41, 0.72);
+        --cp-panel-strong: rgba(41, 41, 41, 0.96);
+        --cp-sheen: rgba(255, 255, 255, 0.04);
+        --cp-highlight: rgba(253, 142, 161, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--cp-text);
+        background: var(--cp-surface);
+        font:
+          14px/1.55 'Segoe UI',
+          Aptos,
+          Calibri,
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        letter-spacing: 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid var(--cp-link);
+        outline-offset: 4px;
+      }
+      [tabindex='-1']:focus {
+        outline: none;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 34px;
+        line-height: 1.16;
+        font-weight: 650;
+        max-width: 780px;
+      }
+      h2 {
+        font-size: 19px;
+        line-height: 1.3;
+        font-weight: 650;
+      }
+      h3 {
+        font-size: 14px;
+      }
+      a {
+        color: var(--cp-link);
+        text-underline-offset: 3px;
+      }
+      .icon {
+        width: 19px;
+        height: 19px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .spread {
+        justify-content: space-between;
+      }
+      .wrap {
+        flex-wrap: wrap;
+      }
+      .muted {
+        color: var(--cp-text-muted);
+      }
+      .tiny {
+        font-size: 11px;
+      }
+      .mono {
+        font-family: Consolas, 'Courier New', Courier, monospace;
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--cp-text-muted);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border: 1px solid var(--cp-border);
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .tag.accent {
+        color: var(--cp-accent);
+        border-color: var(--cp-accent);
+      }
+      .btn {
+        display: inline-flex;
+        justify-content: center;
+        gap: 9px;
+        align-items: center;
+        min-height: 42px;
+        padding: 9px 16px;
+        border: 1px solid var(--cp-border);
+        background: var(--cp-surface);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .btn:hover:not(:disabled) {
+        background: var(--cp-surface-soft);
+        border-color: var(--cp-border-strong);
+      }
+      .btn.primary {
+        background: var(--cp-accent);
+        color: var(--cp-accent-fg);
+        border-color: var(--cp-accent);
+      }
+      .btn.primary:hover:not(:disabled) {
+        background: var(--cp-accent-hover);
+      }
+      .icon-btn {
+        padding: 0;
+        width: 38px;
+        height: 38px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid var(--cp-border);
+        background: var(--cp-surface);
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .icon-btn:hover {
+        background: var(--cp-surface-soft);
+      }
+      .text-btn {
+        border: 0;
+        padding: 4px 0;
+        background: none;
+        color: var(--cp-accent);
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .topbar {
+        padding: 16px 30px;
+        border-bottom: 1px solid var(--cp-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+      }
+      .publication {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 20px;
+        padding: 10px 24px;
+        background: var(--cp-surface-soft);
+        border-bottom: 1px solid var(--cp-border);
+        font-size: 11px;
+        color: var(--cp-text-muted);
+      }
+      .publication-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 19px;
+        font-weight: 700;
+      }
+      .brand .icon {
+        width: 29px;
+        height: 29px;
+        color: var(--cp-accent);
+      }
+      .top-context {
+        font-size: 12px;
+        color: var(--cp-text-muted);
+      }
+      .layout {
+        max-width: 1460px;
+        margin: auto;
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        min-height: calc(100vh - 72px);
+      }
+      .sidebar {
+        border-right: 1px solid var(--cp-border);
+        padding: 32px 22px;
+        background: linear-gradient(
+          180deg,
+          var(--cp-surface-soft),
+          var(--cp-surface)
+        );
+      }
+      .chapter-number {
+        font:
+          52px/1 Consolas,
+          monospace;
+        color: var(--cp-accent);
+        margin: 17px 0;
+      }
+      .sidebar h2 {
+        font-size: 16px;
+      }
+      .sidebar p {
+        font-size: 11px;
+        color: var(--cp-text-muted);
+        margin-top: 9px;
+      }
+      .chapter-nav {
+        display: grid;
+        gap: 5px;
+        margin-top: 30px;
+      }
+      .chapter-nav button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        border: 0;
+        background: none;
+        border-radius: 5px;
+        padding: 11px 8px;
+        font-size: 12px;
+      }
+      .chapter-nav button[aria-current='step'] {
+        background: var(--cp-accent-soft);
+        color: var(--cp-accent);
+        font-weight: 600;
+      }
+      .chapter-nav .step-dot {
+        width: 21px;
+        height: 21px;
+        border: 1px solid var(--cp-border-strong);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font:
+          10px Consolas,
+          monospace;
+        flex-shrink: 0;
+      }
+      .step-dot .icon {
+        width: 12px;
+        height: 12px;
+      }
+      .sidebar-bottom {
+        margin-top: 40px;
+        border-top: 1px solid var(--cp-border);
+        padding-top: 18px;
+      }
+      .main {
+        min-width: 0;
+        padding: 32px 42px 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .stage-head {
+        margin-bottom: 25px;
+      }
+      .stage-head .row {
+        margin-bottom: 15px;
+      }
+      .stage-head .eyebrow {
+        margin: 0;
+      }
+      .stage {
+        flex: 1;
+      }
+      .scene-art {
+        width: 100%;
+        min-height: 210px;
+        background: radial-gradient(
+          var(--cp-border) 0.7px,
+          var(--cp-surface-soft) 0.7px
+        );
+        background-size: 16px 16px;
+        overflow: hidden;
+        margin: 0 0 20px;
+        border-block: 1px solid var(--cp-border);
+      }
+      .scene-art svg {
+        width: 100%;
+        height: auto;
+        max-height: 255px;
+        display: block;
+      }
+      .art-text {
+        font-family: 'Segoe UI', sans-serif;
+        fill: var(--cp-text);
+      }
+      .dialogue {
+        display: grid;
+        grid-template-columns: 46px 1fr;
+        gap: 14px;
+        max-width: 780px;
+        margin: 20px 0 26px;
+        align-items: start;
+      }
+      .portrait {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: var(--cp-accent-soft);
+      }
+      .dialogue .speaker {
+        color: var(--cp-accent);
+        font-size: 11px;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+      .dialogue p {
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .question {
+        font-size: 14px;
+        margin-bottom: 13px;
+      }
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .choice {
+        text-align: left;
+        padding: 17px;
+        border: 1px solid var(--cp-border);
+        border-radius: 8px;
+        background: var(--cp-surface);
+        min-height: 106px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .choice:hover {
+        border-color: var(--cp-accent);
+      }
+      .choice[aria-pressed='true'] {
+        border-color: var(--cp-accent);
+        background: var(--cp-accent-soft);
+      }
+      .choice .choice-marker {
+        width: 21px;
+        height: 21px;
+        font:
+          10px Consolas,
+          monospace;
+        border: 1px solid var(--cp-border-strong);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--cp-text-muted);
+      }
+      .choice strong {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .choice small {
+        font-size: 11px;
+        color: var(--cp-text-muted);
+      }
+      .feedback {
+        padding: 14px 17px;
+        border-left: 3px solid var(--cp-accent);
+        background: var(--cp-accent-soft);
+        margin-top: 17px;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .feedback.good {
+        border-color: var(--cp-success);
+        background: color-mix(in srgb, var(--cp-success) 7%, var(--cp-surface));
+      }
+      .feedback strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .footer {
+        padding: 22px 0;
+        margin-top: 28px;
+        border-top: 1px solid var(--cp-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+      }
+      .footer-hint {
+        font-size: 11px;
+        color: var(--cp-text-muted);
+        max-width: 340px;
+      }
+      .footer .row {
+        gap: 8px;
+      }
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin: 20px 0;
+        gap: 8px;
+      }
+      .timeline button {
+        border: 0;
+        border-top: 3px solid var(--cp-border);
+        background: none;
+        text-align: left;
+        padding: 11px 0;
+        font-size: 11px;
+        color: var(--cp-text-muted);
+      }
+      .timeline button[aria-current='step'] {
+        border-color: var(--cp-accent);
+        color: var(--cp-accent);
+      }
+      .timeline strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 12px;
+      }
+      .trace-toolbar {
+        padding: 14px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--cp-border);
+      }
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 12px;
+      }
+      input[type='checkbox'] {
+        accent-color: var(--cp-accent);
+        width: 18px;
+        height: 18px;
+      }
+      .trace-board {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 40px 180px 40px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 30px 0;
+        min-height: 195px;
+      }
+      .token-tray {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 45px;
+        align-content: start;
+        margin-top: 10px;
+      }
+      .token {
+        display: inline-flex;
+        width: 38px;
+        height: 38px;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid var(--cp-link);
+        color: var(--cp-link);
+        background: color-mix(in srgb, var(--cp-link) 6%, var(--cp-surface));
+        border-radius: 5px;
+        font:
+          12px Consolas,
+          monospace;
+      }
+      .token.generated {
+        border-color: var(--cp-accent);
+        color: var(--cp-accent);
+        background: var(--cp-accent-soft);
+      }
+      .token.cached {
+        border-color: var(--cp-success);
+        color: color-mix(in srgb, var(--cp-success) 65%, var(--cp-text));
+        background: color-mix(in srgb, var(--cp-success) 7%, var(--cp-surface));
+      }
+      .model-block {
+        display: grid;
+        place-items: center;
+        min-height: 112px;
+        padding: 15px;
+        border: 1px solid var(--cp-border-strong);
+        background: var(--cp-surface-soft);
+        border-radius: 8px;
+        text-align: center;
+        gap: 7px;
+      }
+      .model-block .icon {
+        color: var(--cp-link);
+        width: 26px;
+        height: 26px;
+      }
+      .model-block strong {
+        font-size: 13px;
+      }
+      .trace-arrow {
+        color: var(--cp-text-soft);
+        text-align: center;
+      }
+      .cache-row {
+        padding: 18px 0;
+        border-block: 1px solid var(--cp-border);
+        display: grid;
+        grid-template-columns: 180px 1fr auto;
+        align-items: center;
+        gap: 15px;
+      }
+      .cache-row .token-tray {
+        margin: 0;
+      }
+      .cache-row p {
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--cp-text-muted);
+      }
+      .trace-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        margin-top: 18px;
+        gap: 20px;
+        font-size: 12px;
+      }
+      .trace-summary strong {
+        font:
+          25px Consolas,
+          monospace;
+        color: var(--cp-accent);
+        margin-right: 8px;
+      }
+      .attention-detail {
+        margin-top: 18px;
+        font-size: 12px;
+      }
+      .attention-detail summary {
+        cursor: pointer;
+        color: var(--cp-link);
+      }
+      .attention-detail p {
+        margin-top: 12px;
+      }
+      .mobile-restart {
+        display: none;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .lab {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        border-block: 1px solid var(--cp-border);
+        margin-top: 20px;
+      }
+      .lab-controls {
+        background: var(--cp-surface-soft);
+        padding: 22px;
+        border-right: 1px solid var(--cp-border);
+      }
+      .field {
+        margin-bottom: 24px;
+      }
+      .field label {
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .field output {
+        font-family: Consolas, monospace;
+        font-weight: 600;
+      }
+      .field input[type='range'] {
+        width: 100%;
+        accent-color: var(--cp-accent);
+        margin: 0;
+        cursor: pointer;
+      }
+      .field small {
+        display: block;
+        color: var(--cp-text-muted);
+        font-size: 10px;
+        margin-top: 7px;
+      }
+      .segments {
+        display: flex;
+        border: 1px solid var(--cp-border);
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 10px 0 22px;
+      }
+      .segments button {
+        flex: 1;
+        padding: 9px 7px;
+        border: 0;
+        background: var(--cp-surface);
+        font-size: 10px;
+      }
+      .segments button[aria-pressed='true'] {
+        background: var(--cp-accent);
+        color: var(--cp-accent-fg);
+      }
+      .lab-results {
+        padding: 22px 24px;
+        min-width: 0;
+      }
+      .budget-stat {
+        font:
+          34px/1.1 Consolas,
+          monospace;
+        margin: 12px 0 6px;
+      }
+      .budget-stat span {
+        font-size: 16px;
+        color: var(--cp-text-muted);
+      }
+      .memory-viz {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 28px;
+        margin-top: 24px;
+        align-items: center;
+      }
+      .memory-stack {
+        display: flex;
+        flex-direction: column-reverse;
+        height: 220px;
+        border: 1px solid var(--cp-border-strong);
+        background: repeating-linear-gradient(
+          135deg,
+          var(--cp-surface),
+          var(--cp-surface) 6px,
+          var(--cp-surface-soft) 6px,
+          var(--cp-surface-soft) 12px
+        );
+        position: relative;
+      }
+      .memory-layer {
+        width: 100%;
+        flex-shrink: 0;
+      }
+      .weights {
+        background: var(--cp-link);
+      }
+      .overhead {
+        background: var(--cp-border-strong);
+      }
+      .kv {
+        background: var(--cp-success);
+      }
+      .limit-line {
+        position: absolute;
+        border-top: 2px dashed var(--cp-danger);
+        width: calc(100% + 14px);
+        left: -7px;
+        z-index: 1;
+      }
+      .legend {
+        display: grid;
+        gap: 14px;
+      }
+      .legend-row {
+        display: grid;
+        grid-template-columns: 9px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+      .legend-row i {
+        width: 9px;
+        height: 9px;
+        margin-top: 4px;
+      }
+      .legend-row strong {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .legend-row small {
+        display: block;
+        color: var(--cp-text-muted);
+        font-size: 10px;
+      }
+      .memory-note {
+        font-size: 11px;
+        margin-top: 17px;
+        color: var(--cp-text-muted);
+      }
+      .budget-status {
+        font-size: 12px;
+        font-weight: 600;
+        color: color-mix(in srgb, var(--cp-success) 65%, var(--cp-text));
+      }
+      .budget-status.over {
+        color: var(--cp-danger);
+      }
+      .snapshots {
+        margin-top: 20px;
+      }
+      .snapshot-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .snapshot {
+        border-bottom: 1px solid var(--cp-border);
+        padding: 10px 0;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 14px;
+        align-items: center;
+        font-size: 11px;
+      }
+      .snapshot strong {
+        font-size: 12px;
+      }
+      .brief {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-block: 1px solid var(--cp-border);
+        margin: 20px 0;
+      }
+      .brief div {
+        padding: 17px 12px;
+        border-right: 1px solid var(--cp-border);
+      }
+      .brief div:last-child {
+        border: 0;
+      }
+      .brief strong {
+        display: block;
+        font:
+          25px Consolas,
+          monospace;
+      }
+      .brief small {
+        font-size: 10px;
+        color: var(--cp-text-muted);
+      }
+      .decisions {
+        grid-template-columns: 1fr 1fr;
+      }
+      .queue-strip {
+        display: flex;
+        gap: 8px;
+        margin: 18px 0 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .person-slot {
+        width: 41px;
+        height: 46px;
+        border-bottom: 3px solid var(--cp-success);
+        display: grid;
+        place-items: center;
+        color: var(--cp-link);
+        background: var(--cp-surface-soft);
+      }
+      .person-slot.waiting {
+        border-color: var(--cp-accent);
+        color: var(--cp-accent);
+      }
+      .transfer-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 35px;
+        margin-top: 24px;
+      }
+      .review-notes {
+        background: var(--cp-surface-soft);
+        padding: 24px;
+        border-left: 3px solid var(--cp-link);
+      }
+      .review-notes h3 {
+        margin-bottom: 18px;
+      }
+      .review-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--cp-border);
+        font-size: 12px;
+      }
+      .answer-form label {
+        display: block;
+        margin-bottom: 7px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .answer-form select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--cp-border-strong);
+        border-radius: 5px;
+        padding: 8px;
+        margin-bottom: 20px;
+        background: var(--cp-surface);
+        font-size: 12px;
+      }
+      .answer-form input {
+        width: 90px;
+        min-height: 44px;
+        padding: 8px 12px;
+        border: 1px solid var(--cp-border-strong);
+        border-radius: 5px;
+        background: var(--cp-surface);
+        margin-bottom: 20px;
+      }
+      .takeaways {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 25px;
+        margin: 30px 0;
+      }
+      .takeaway {
+        border-top: 3px solid var(--cp-link);
+        padding-top: 16px;
+      }
+      .takeaway:nth-child(2) {
+        border-color: var(--cp-success);
+      }
+      .takeaway:nth-child(3) {
+        border-color: var(--cp-accent);
+      }
+      .takeaway .icon {
+        margin-bottom: 12px;
+      }
+      .takeaway p {
+        font-size: 12px;
+        color: var(--cp-text-muted);
+        margin-top: 9px;
+      }
+      .complete-mark {
+        width: 60px;
+        height: 60px;
+        border: 1px solid var(--cp-success);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--cp-success);
+        margin-bottom: 20px;
+      }
+      .complete-mark .icon {
+        width: 30px;
+        height: 30px;
+      }
+      dialog {
+        border: 1px solid var(--cp-border);
+        border-radius: 8px;
+        background: var(--cp-surface);
+        color: var(--cp-text);
+        width: min(720px, calc(100% - 32px));
+        max-height: 85vh;
+        padding: 24px;
+        box-shadow: var(--cp-shadow);
+      }
+      dialog::backdrop {
+        background: var(--cp-overlay);
+      }
+      dialog .dialog-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 22px;
+      }
+      dialog p,
+      dialog li {
+        font-size: 13px;
+      }
+      dialog li {
+        margin: 9px 0;
+      }
+      .source {
+        padding: 17px 0;
+        border-bottom: 1px solid var(--cp-border);
+      }
+      .source p {
+        color: var(--cp-text-muted);
+        margin-top: 6px;
+      }
+      .formula {
+        font:
+          12px/1.8 Consolas,
+          monospace;
+        padding: 16px;
+        margin: 15px 0;
+        background: var(--cp-surface-soft);
+        overflow-wrap: anywhere;
+      }
+      .skip {
+        position: fixed;
+        top: -100px;
+        padding: 12px;
+        background: var(--cp-surface);
+        color: var(--cp-text);
+        z-index: 3;
+      }
+      .skip:focus {
+        top: 5px;
+        left: 5px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+      }
+      .enter {
+        animation: appear 0.25s ease-out;
+      }
+      @keyframes appear {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (max-width: 1100px) {
+        .layout {
+          grid-template-columns: 190px minmax(0, 1fr);
+        }
+        .main {
+          padding: 26px 25px 0;
+        }
+        .sidebar {
+          padding: 28px 15px;
+        }
+        .lab {
+          grid-template-columns: 210px minmax(0, 1fr);
+        }
+        .lab-controls {
+          padding: 18px;
+        }
+        .lab-results {
+          padding: 18px;
+        }
+        .memory-viz {
+          grid-template-columns: 85px 1fr;
+          gap: 20px;
+        }
+        .trace-board {
+          grid-template-columns: minmax(0, 1fr) 22px 140px 22px minmax(0, 1fr);
+          gap: 6px;
+        }
+      }
+      @media (max-width: 800px) {
+        .mobile-restart {
+          display: inline-grid;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--cp-border);
+          padding: 10px 20px;
+          background: var(--cp-surface-soft);
+        }
+        .sidebar > :not(.chapter-nav) {
+          display: none;
+        }
+        .chapter-nav {
+          grid-template-columns: repeat(6, 1fr);
+          margin: 0;
+          gap: 6px;
+        }
+        .chapter-nav button {
+          justify-content: center;
+          padding: 7px 0;
+        }
+        .chapter-nav .step-label {
+          display: none;
+        }
+        .main {
+          padding: 24px 24px 0;
+        }
+        .top-context {
+          display: none;
+        }
+        .scene-art {
+          min-height: 0;
+        }
+        h1 {
+          font-size: 29px;
+        }
+      }
+      @media (max-width: 560px) {
+        .topbar {
+          padding: 12px 16px;
+        }
+        .brand {
+          font-size: 17px;
+        }
+        .topbar .tag {
+          display: none;
+        }
+        .main {
+          padding: 24px 16px 0;
+        }
+        h1 {
+          font-size: 27px;
+        }
+        .stage-head .row {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .stage-head {
+          margin-bottom: 20px;
+        }
+        .choices {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .choice {
+          min-height: 0;
+          display: grid;
+          grid-template-columns: 23px 1fr;
+          padding: 14px;
+          gap: 10px;
+          align-items: center;
+        }
+        .choice small {
+          grid-column: 2;
+        }
+        .dialogue {
+          grid-template-columns: 37px 1fr;
+          gap: 10px;
+        }
+        .portrait {
+          width: 37px;
+          height: 37px;
+        }
+        .dialogue p {
+          font-size: 14px;
+        }
+        .scene-art svg {
+          width: 100%;
+          height: auto;
+          max-height: none;
+        }
+        .scene-art {
+          height: auto;
+          min-height: 0;
+        }
+        .footer {
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .footer-hint {
+          width: 100%;
+          max-width: none;
+        }
+        .footer > .row {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .trace-toolbar {
+          flex-wrap: wrap;
+        }
+        .trace-board {
+          grid-template-columns: 1fr 22px 1fr;
+          gap: 10px;
+          padding: 22px 0;
+        }
+        .trace-board .output-stage {
+          grid-column: 3;
+        }
+        .trace-board .last-arrow {
+          grid-column: 3;
+          transform: rotate(90deg);
+          height: 22px;
+        }
+        .model-block {
+          min-height: 100px;
+        }
+        .token {
+          width: 31px;
+          height: 34px;
+          font-size: 11px;
+        }
+        .cache-row {
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+        }
+        .cache-row .token-tray {
+          grid-row: 2;
+          grid-column: 1 / -1;
+        }
+        .trace-summary {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        .timeline {
+          gap: 9px;
+        }
+        .timeline button {
+          font-size: 9px;
+        }
+        .timeline strong {
+          font-size: 11px;
+        }
+        .lab {
+          grid-template-columns: 1fr;
+        }
+        .lab-controls {
+          border-right: 0;
+          border-bottom: 1px solid var(--cp-border);
+        }
+        .memory-viz {
+          grid-template-columns: 100px 1fr;
+        }
+        .lab-results {
+          padding: 22px 14px;
+        }
+        .memory-stack {
+          height: 180px;
+        }
+        .brief {
+          grid-template-columns: 1fr 1fr;
+        }
+        .brief div:nth-child(2) {
+          border-right: 0;
+        }
+        .brief div:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--cp-border);
+        }
+        .transfer-layout {
+          grid-template-columns: 1fr;
+          gap: 22px;
+        }
+        .takeaways {
+          grid-template-columns: 1fr;
+          gap: 23px;
+        }
+        dialog {
+          padding: 20px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .enter {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a href="#main" class="skip">Skip to chapter</a>
+    <div id="app"></div>
+    <div
+      id="announcement"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <dialog id="details" aria-labelledby="detail-title">
+      <div class="dialog-head">
+        <h2 id="detail-title"></h2>
+        <button
+          class="icon-btn"
+          data-action="close"
+          aria-label="Close dialog"
+          title="Close dialog"
+        >
+          &#215;
+        </button>
+      </div>
+      <div id="detail-body"></div>
+    </dialog>
+    <noscript
+      >This interactive chapter requires JavaScript. It runs locally without an
+      AI service.</noscript
+    >
+    <script id="lesson-core">
+      globalThis.InferenceLesson = (() => {
+        const GiB = 1024 ** 3;
+        const model = Object.freeze({
+          layers: 32,
+          kvHeads: 8,
+          headDim: 128,
+          bytesPerValue: 2,
+          weightsGiB: 14,
+          overheadGiB: 2,
+          gpuGiB: 24,
+        });
+        const sources = [
+          {
+            id: 'cache',
+            name: 'Hugging Face / Caching',
+            url: 'https://huggingface.co/docs/transformers/en/cache_explanation',
+            supports:
+              'Per-layer keys and values, autoregressive reuse, and the generation loop.',
+          },
+          {
+            id: 'strategies',
+            name: 'Hugging Face / Cache strategies',
+            url: 'https://huggingface.co/docs/transformers/en/kv_cache',
+            supports:
+              'Dynamic and static caches, offloading, and sliding-window exceptions.',
+          },
+          {
+            id: 'paged',
+            name: 'PagedAttention / SOSP 2023',
+            url: 'https://arxiv.org/abs/2309.06180',
+            supports:
+              'Allocation waste, sharing, and the relationship between cache memory and serving concurrency.',
+          },
+        ];
+        const chapters = [
+          {
+            id: 'incident',
+            short: 'The incident',
+            title: 'It worked for one person.',
+            subtitle: '09:02 / Launch day at Folio',
+            sourceIds: ['cache'],
+          },
+          {
+            id: 'trace',
+            short: 'Inside a request',
+            title: 'Read once. Then keep going.',
+            subtitle: '09:07 / Following one conversation',
+            sourceIds: ['cache'],
+          },
+          {
+            id: 'memory',
+            short: 'The memory lab',
+            title: 'The weights are not the whole bill.',
+            subtitle: '09:12 / On the serving machine',
+            sourceIds: ['cache', 'strategies', 'paged'],
+          },
+          {
+            id: 'decision',
+            short: 'The launch decision',
+            title: 'Eight people. One GPU.',
+            subtitle: '09:18 / The doors are still open',
+            sourceIds: ['strategies', 'paged'],
+          },
+          {
+            id: 'transfer',
+            short: 'A different workload',
+            title: 'Tomorrow is not a copy of today.',
+            subtitle: 'The next morning / An architecture review',
+            sourceIds: ['cache', 'strategies'],
+          },
+          {
+            id: 'debrief',
+            short: 'Your field notes',
+            title: 'You found the missing memory.',
+            subtitle: 'Chapter 01 / Debrief',
+            sourceIds: ['cache', 'strategies', 'paged'],
+          },
+        ];
+        function integer(value, name, minimum, maximum) {
+          if (!Number.isInteger(value) || value < minimum || value > maximum)
+            throw new Error(`Invalid ${name}`);
+        }
+        function estimate(config) {
+          integer(config.concurrent, 'concurrency', 1, 64);
+          integer(config.prompt, 'prompt', 1, 131072);
+          integer(config.output, 'output', 0, 131072);
+          if (!['prefill', 'budget'].includes(config.stage))
+            throw new Error('Invalid stage');
+          const bytesPerToken =
+            2 *
+            model.layers *
+            model.kvHeads *
+            model.headDim *
+            model.bytesPerValue;
+          const cachedTokens =
+            config.prompt + (config.stage === 'budget' ? config.output : 0);
+          const perSequence = (bytesPerToken * cachedTokens) / GiB;
+          const kvGiB = perSequence * config.concurrent;
+          const totalGiB = model.weightsGiB + model.overheadGiB + kvGiB;
+          return {
+            bytesPerToken,
+            cachedTokens,
+            perSequence,
+            kvGiB,
+            totalGiB,
+            freeGiB: model.gpuGiB - totalGiB,
+            fits: totalGiB <= model.gpuGiB,
+            capacity: Math.floor(
+              (model.gpuGiB - model.weightsGiB - model.overheadGiB) /
+                perSequence,
+            ),
+          };
+        }
+        function trace(step, useCache) {
+          integer(step, 'trace step', 0, 3);
+          if (typeof useCache !== 'boolean')
+            throw new Error('Invalid cache mode');
+          const processed =
+            step === 0 ? 0 : useCache ? step + 2 : [0, 3, 7, 12][step];
+          return {
+            step,
+            phase: step === 0 ? 'Ready' : step === 1 ? 'Prefill' : 'Decode',
+            outputTokens: step,
+            cachedTokens: step === 0 || !useCache ? 0 : step + 2,
+            currentPositions:
+              step === 0 ? 0 : useCache && step > 1 ? 1 : step + 2,
+            processed,
+          };
+        }
+        const predictions = [
+          {
+            id: 'weights',
+            title: 'Eight people, eight copies of the model?',
+            feedback:
+              'A single serving replica can share one set of weights across requests. The growing part is elsewhere.',
+          },
+          {
+            id: 'state',
+            title: 'Each conversation needs its own working state?',
+            feedback:
+              "That is the useful lead. Let's follow what the model keeps while a conversation is being generated.",
+          },
+          {
+            id: 'answers',
+            title: 'The completed answers fill the GPU?',
+            feedback:
+              'The important cache here is not a store of finished answer text. It holds attention keys and values for processed tokens.',
+          },
+        ];
+        const decisions = [
+          {
+            id: 'queue',
+            title: 'Admit six. Queue two.',
+            note: 'Keep the full documents and output allowance.',
+            success: true,
+            feedback:
+              'Six active sequences budget 23.5 GiB. Two requests wait outside the GPU batch and can enter as active requests finish. Memory fits this model; waiting increases latency, which still needs measurement.',
+          },
+          {
+            id: 'shorten',
+            title: 'Cut every document in half.',
+            note: 'Admit all eight at once.',
+            success: false,
+            feedback:
+              'The estimate falls to 22 GiB, but this launch requires the full 8,192-token documents. Truncation breaks that requirement and can remove needed evidence.',
+          },
+          {
+            id: 'all',
+            title: 'Admit all eight unchanged.',
+            note: 'The weights already fit.',
+            success: false,
+            feedback:
+              'At the prompt boundary the estimate is exactly 24 GiB. Reserving room for generation raises it to 26 GiB. Loaded weights alone do not establish serving capacity.',
+          },
+          {
+            id: 'nocache',
+            title: 'Turn off the KV cache.',
+            note: 'Trade memory for repeated computation.',
+            success: false,
+            feedback:
+              'This changes the execution path and may reduce persistent cache memory, but it repeats prefix computation. Our fixed runtime-overhead assumption no longer establishes its memory or latency. It is an unvalidated alternative, not a proven launch fix.',
+          },
+        ];
+        function decision(id) {
+          const choice = decisions.find((item) => item.id === id);
+          if (!choice) throw new Error('Unknown decision');
+          return choice;
+        }
+        function assessTransfer(count, reason) {
+          integer(count, 'transfer count', 1, 16);
+          if (!['same', 'shrinks', 'peruser'].includes(reason))
+            throw new Error('Unknown explanation');
+          const result = estimate({
+            concurrent: count,
+            prompt: 4096,
+            output: 2048,
+            stage: 'budget',
+          });
+          return {
+            passed: count === result.capacity && reason === 'same',
+            capacity: result.capacity,
+            totalGiB: result.totalGiB,
+            feedback:
+              count !== result.capacity
+                ? `Each sequence budgets 0.75 GiB. The 8 GiB left after weights and assumed overhead can hold ten: 23.5 GiB total. Eleven would need 24.25 GiB.`
+                : reason !== 'same'
+                  ? 'Ten fits, but the weights do not shrink with shorter documents or multiply for each user in this replica. It is the per-sequence KV budget that changes.'
+                  : "Ten sequences fit the stated logical budget. The shared weights remain 14 GiB; the shorter input reduces each sequence's KV budget to 0.75 GiB. This is a memory estimate, not a throughput guarantee.",
+          };
+        }
+        return {
+          model,
+          sources,
+          chapters,
+          predictions,
+          decisions,
+          estimate,
+          trace,
+          decision,
+          assessTransfer,
+        };
+      })();
+    </script>
+    <script id="lesson-ui">
+      (() => {
+        const lesson = globalThis.InferenceLesson;
+        const app = document.getElementById('app');
+        const details = document.getElementById('details');
+        const paths = {
+          layers:
+            '<path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/>',
+          arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
+          back: '<path d="M19 12H5m6-6-6 6 6 6"/>',
+          book: '<path d="M12 7v14m0-14C8 4 5 4 2 5v14c3-1 6-1 10 2 4-3 7-3 10-2V5c-3-1-6-1-10 2Z"/>',
+          reset: '<path d="M3 10a9 9 0 1 1 2 8M3 3v7h7"/>',
+          play: '<path d="m7 4 13 8-13 8V4Z"/>',
+          pause: '<path d="M8 4v16M16 4v16"/>',
+          next: '<path d="m5 4 11 8-11 8V4Zm14 0v16"/>',
+          chip: '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/>',
+          check: '<path d="m5 12 4 4L19 6"/>',
+          flask:
+            '<path d="M9 3h6m-5 0v7l-6 9a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2l-6-9V3M8 15h8"/>',
+          user: '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
+          sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/>',
+          moon: '<path d="M20.9 13.1A9 9 0 0 1 10.9 3.1a9 9 0 1 0 10 10Z"/>',
+          save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2ZM7 3v6h9V3M7 21v-7h10v7"/>',
+          info: '<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>',
+        };
+        function icon(name) {
+          return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.info}</svg>`;
+        }
+        function initial() {
+          return {
+            step: 0,
+            unlocked: 0,
+            prediction: null,
+            traceStep: 0,
+            traceSeen: false,
+            useCache: true,
+            lab: { concurrent: 8, prompt: 8192, output: 2048, stage: 'budget' },
+            snapshots: [],
+            choice: null,
+            decisionPassed: false,
+            count: '',
+            reason: '',
+            transfer: null,
+            transferAttempts: 0,
+          };
+        }
+        let state = initial();
+        let timer = null;
+        let dialogOpener = null;
+        const format = (value) => value.toLocaleString('en-US');
+        const fixed = (value) => Number(value.toFixed(2)).toString();
+        function announce(message) {
+          document.getElementById('announcement').textContent = message;
+        }
+        function portrait(person) {
+          return `<svg class="portrait" viewBox="0 0 64 64" role="img" aria-label="${person}"><path d="M8 64v-9c0-17 48-17 48 0v9" fill="var(--cp-${person === 'Mira' ? 'accent' : 'link'})"/><path d="M20 38V22C20 4 47 7 46 24v15Z" fill="var(--cp-text)"/><ellipse cx="33" cy="28" rx="12" ry="15" fill="var(--cp-bg)"/><path d="M20 23c3-16 21-16 27 1-8-1-12-4-15-7-2 4-7 5-12 6Z" fill="var(--cp-text)"/><path d="M27 29h1m10 0h1m-9 7q3 3 6 0" stroke="var(--cp-text)" stroke-width="2" stroke-linecap="round" fill="none"/></svg>`;
+        }
+        function dialogue(person, role, text) {
+          return `<div class="dialogue">${portrait(person)}<div><div class="speaker">${person} / ${role}</div><p>${text}</p></div></div>`;
+        }
+        function sceneArt() {
+          return `<div class="scene-art"><svg viewBox="0 0 900 250" role="img" aria-label="Folio launch room: a document assistant's single-user test fits, but eight long conversations exceed the GPU memory budget"><path d="M25 221H875" stroke="var(--cp-border-strong)"/><g transform="translate(48 27)"><path d="M0 0h140v156H0Z" fill="var(--cp-surface)" stroke="var(--cp-border)"/><text x="17" y="27" class="art-text" font-size="12" font-weight="600">FOLIO / LAUNCH</text><path d="M17 46h104M17 59h77M17 72h91" stroke="var(--cp-border-strong)"/><rect x="17" y="94" width="106" height="42" rx="4" fill="var(--cp-accent-soft)"/><text x="70" y="111" class="art-text" font-size="9" text-anchor="middle">DOCUMENT ASSISTANT</text><text x="70" y="128" fill="var(--cp-accent)" font-size="12" font-family="Consolas" text-anchor="middle">LIVE / 09:02</text></g><g transform="translate(248 35)"><path d="M-26 152c0-66 76-66 76 0v34h-76Z" fill="var(--cp-accent)"/><ellipse cx="12" cy="83" rx="29" ry="36" fill="var(--cp-bg)" stroke="var(--cp-text)" stroke-width="2"/><path d="M-18 76c-4-55 66-51 61 3-21-1-31-9-38-19-5 11-15 15-23 16Z" fill="var(--cp-text)"/><path d="M0 86h2m21 0h2M5 100q9-4 14 0" stroke="var(--cp-text)" stroke-width="3" stroke-linecap="round"/><path d="M22 143l55 23" stroke="var(--cp-accent)" stroke-width="17" stroke-linecap="round"/><path d="M55 154h98l-15 57H43Z" fill="var(--cp-surface-soft)" stroke="var(--cp-border-strong)"/><rect x="87" y="174" width="14" height="14" rx="2" fill="var(--cp-link)"/></g><g transform="translate(465 30)"><rect width="368" height="163" rx="5" fill="var(--cp-surface)" stroke="var(--cp-border-strong)"/><text x="20" y="26" class="art-text" font-size="11" font-weight="600">GPU MEMORY / 24 GiB</text><text x="20" y="59" class="art-text" font-size="10">1 conversation</text><rect x="129" y="46" width="198" height="19" fill="var(--cp-surface-soft)"/><rect x="129" y="46" width="131" height="19" fill="var(--cp-link)"/><text x="270" y="59" class="art-text" font-size="9">17.25</text><text x="20" y="99" class="art-text" font-size="10">8 conversations</text><rect x="129" y="85" width="198" height="19" fill="var(--cp-accent)"/><path d="M312 39v76" stroke="var(--cp-danger)" stroke-dasharray="3 3"/><text x="20" y="139" fill="var(--cp-accent)" font-family="Consolas" font-size="12">GENERATION BUDGET EXCEEDED / 26 GiB</text><path d="M171 163v26m-39 0h78" stroke="var(--cp-border-strong)" stroke-width="4"/></g><text x="466" y="241" class="art-text" font-size="10">Illustrative launch / calculated memory, not live telemetry</text></svg></div>`;
+        }
+        function shell() {
+          const chapter = lesson.chapters[state.step];
+          const dark = document.documentElement.dataset.theme === 'dark';
+          return `<header class="topbar"><div class="brand">${icon('layers')}Under the Model</div><span class="top-context">Field stories for AI engineers</span><div class="row"><span class="tag">CHAPTER 01</span><button class="icon-btn" data-action="sources" aria-label="Sources and model limits" title="Sources and model limits">${icon('book')}</button><button class="icon-btn" data-action="theme" aria-label="Switch to ${dark ? 'light' : 'dark'} theme" title="Switch to ${dark ? 'light' : 'dark'} theme">${icon(dark ? 'sun' : 'moon')}</button></div></header><nav class="publication" aria-label="Publication"><span>Chapter 01 / <time datetime="2026-09-07">7 September 2026</time> / Community preview</span><div class="publication-links"><a href="/chapters/the-launch-day-mystery/">Chapter link</a><a href="https://github.com/Rrishik/healthvault/issues/new?template=chapter-feedback.yml" target="_blank" rel="noopener noreferrer">Report an issue</a><a href="https://github.com/Rrishik/healthvault/tree/main/site" target="_blank" rel="noopener noreferrer">View source</a></div></nav><div class="layout"><aside class="sidebar"><div class="eyebrow">An inference story</div><div class="chapter-number">01</div><h2>The launch-day mystery</h2><p>Prefill, decode &amp; KV cache</p><nav class="chapter-nav" aria-label="Chapter scenes">${lesson.chapters.map((item, index) => `<button data-scene="${index}" aria-label="${index + 1}. ${item.short}" ${index === state.step ? 'aria-current="step"' : ''} ${index > state.unlocked ? 'disabled' : ''}><span class="step-dot">${index < state.unlocked ? icon('check') : index + 1}</span><span class="step-label">${item.short}</span></button>`).join('')}</nav><div class="sidebar-bottom"><span class="tiny muted">Community preview<br>Progress lasts until refresh.</span><button class="text-btn" data-action="restart" style="margin-top:16px">${icon('reset')}Restart chapter</button></div></aside><main id="main" class="main" tabindex="-1"><div class="stage-head"><div class="row spread"><div class="eyebrow">${chapter.subtitle}</div><span class="tag accent">${String(state.step + 1).padStart(2, '0')} / 06</span></div><h1>${chapter.title}</h1></div><section class="stage enter" aria-label="${chapter.short}">${[incident, traceScene, memoryScene, decisionScene, transferScene, debrief][state.step]()}</section>${footer()}</main></div>`;
+        }
+        function incident() {
+          return `${sceneArt()}${dialogue('Mira', 'Product engineer', "Yesterday, one long document worked. Today, eight people arrive together. The model still fits. The conversations don't.")}<h2 class="question">Where would you look first?</h2><div class="choices">${lesson.predictions.map((item, index) => `<button class="choice" data-prediction="${item.id}" aria-pressed="${state.prediction === item.id}"><span class="choice-marker">${index + 1}</span><strong>${item.title}</strong></button>`).join('')}</div>${state.prediction ? `<div class="feedback" role="status">${lesson.predictions.find((item) => item.id === state.prediction).feedback}</div>` : ''}`;
+        }
+        const traceCopy = [
+          'A token is a model-specific unit of input. Here p1, p2 and p3 stand for input token positions, not literal words. The model weights are already loaded.',
+          'Prefill processes the prompt. With caching enabled, each attention layer retains its keys and values. The final prompt position supplies the prediction for the first output token, g1.',
+          'Decode feeds g1 back into the model to predict g2. With caching, earlier keys and values are reused. The new query still attends to the available past keys and values.',
+          'Next, g2 is processed to predict g3. There are now five processed positions in the cache. We stop here: the last sampled token, g3, has not been fed back.',
+        ];
+        function token(label, kind = '') {
+          return `<span class="token ${kind}">${label}</span>`;
+        }
+        function traceScene() {
+          const frame = lesson.trace(state.traceStep, state.useCache);
+          const inputs =
+            state.traceStep === 0 || state.traceStep === 1
+              ? ['p1', 'p2', 'p3']
+              : state.useCache
+                ? [`g${state.traceStep - 1}`]
+                : [
+                    'p1',
+                    'p2',
+                    'p3',
+                    ...Array.from(
+                      { length: state.traceStep - 1 },
+                      (_, index) => `g${index + 1}`,
+                    ),
+                  ];
+          const cache = [
+            'p1',
+            'p2',
+            'p3',
+            ...Array.from(
+              { length: Math.max(0, state.traceStep - 1) },
+              (_, index) => `g${index + 1}`,
+            ),
+          ].slice(0, frame.cachedTokens);
+          return `${dialogue('Dev', 'Serving engineer', "Let's pause the launch and follow one request. The model does not start from a blank page for every output token.")}<div class="trace-toolbar"><label class="switch"><input id="use-cache" type="checkbox" ${state.useCache ? 'checked' : ''}/>Reuse KV cache</label><div class="controls"><button class="icon-btn" data-action="trace-reset" title="Rewind request" aria-label="Rewind request">${icon('reset')}</button><button class="btn" data-action="trace-play">${icon(timer ? 'pause' : 'play')}${timer ? 'Pause' : state.traceStep === 3 ? 'Replay' : 'Play'}</button><button class="icon-btn" data-action="trace-next" aria-label="Next request step" title="Next request step" ${state.traceStep === 3 ? 'disabled' : ''}>${icon('next')}</button></div></div><div class="timeline">${['Input ready', 'Prefill', 'Decode 01', 'Decode 02'].map((title, index) => `<button data-trace="${index}" ${state.traceStep === index ? 'aria-current="step"' : ''}><span class="mono">0${index + 1}</span><strong>${title}</strong></button>`).join('')}</div><div class="trace-board"><div><div class="eyebrow">${state.traceStep ? 'Processed this step' : 'Prompt waiting'}</div><div class="token-tray">${inputs.map((label) => token(label, label[0] === 'g' ? 'generated' : '')).join('')}</div></div><div class="trace-arrow">${icon('arrow')}</div><div class="model-block">${icon('chip')}<strong>Same model weights</strong><span class="tiny muted">${frame.phase}</span></div><div class="trace-arrow last-arrow">${icon('arrow')}</div><div class="output-stage"><div class="eyebrow">Output sampled so far</div><div class="token-tray">${state.traceStep ? Array.from({ length: state.traceStep }, (_, index) => token(`g${index + 1}`, 'generated')).join('') : '<span class="tiny muted">No output yet</span>'}</div></div></div><div class="cache-row"><div><strong>${state.useCache ? 'KV cache' : 'No retained KV cache'}</strong><p>${state.useCache ? 'Stored at every attention layer' : 'Full prefix reprocessed each step'}</p></div><div class="token-tray">${cache.length ? cache.map((label) => token(label, 'cached')).join('') : '<span class="tiny muted">Empty</span>'}</div><strong class="mono" id="cache-count">${frame.cachedTokens} positions</strong></div><div class="trace-summary"><div><strong id="positions-count">${frame.processed}</strong>input positions processed so far</div><div class="muted">A count of repeated work, not FLOPs or a speed measurement.</div></div><div class="feedback" id="trace-explanation">${!state.useCache && state.traceStep > 1 ? `Without reuse, this forward pass processes ${frame.currentPositions} positions: the full prompt and the preceding generated tokens. No keys or values are retained between passes.` : traceCopy[state.traceStep]}</div><p class="tiny muted" style="margin-top:14px">Symbolic tokens. Ordinary causal, autoregressive generation; no speculative decoding. Animation pace is illustrative.</p>`;
+        }
+        function memoryReadout() {
+          const result = lesson.estimate(state.lab);
+          const scale = Math.max(lesson.model.gpuGiB, result.totalGiB);
+          return `<div class="row spread wrap"><span class="eyebrow" style="margin:0">One model replica / one GPU</span><span class="tag">CALCULATED</span></div><div class="budget-stat"><span id="memory-total" style="font:inherit;color:inherit">${fixed(result.totalGiB)}</span> <span>/ 24 GiB</span></div><div class="budget-status ${result.fits ? '' : 'over'}">${result.fits ? `${fixed(result.freeGiB)} GiB headroom in this model` : `${fixed(-result.freeGiB)} GiB over the budget`}</div><div class="memory-viz"><div class="memory-stack" role="img" aria-label="Memory allocation: 14 GiB weights, 2 GiB assumed runtime overhead, ${fixed(result.kvGiB)} GiB KV cache; capacity 24 GiB"><div class="memory-layer weights" style="height:${(14 / scale) * 100}%"></div><div class="memory-layer overhead" style="height:${(2 / scale) * 100}%"></div><div class="memory-layer kv" style="height:${(result.kvGiB / scale) * 100}%"></div>${!result.fits ? `<div class="limit-line" style="bottom:${(24 / scale) * 100}%" title="24 GiB capacity"></div>` : ''}</div><div class="legend"><div class="legend-row"><i class="weights"></i><div><strong>14 GiB / Weights</strong><small>Shared across these requests</small></div></div><div class="legend-row"><i class="overhead"></i><div><strong>2 GiB / Runtime</strong><small>Fixed teaching assumption</small></div></div><div class="legend-row"><i class="kv"></i><div><strong>${fixed(result.kvGiB)} GiB / KV cache</strong><small>${state.lab.concurrent} sequences &times; ${fixed(result.perSequence)} GiB</small></div></div><div class="legend-row"><i style="border:1px solid var(--cp-border-strong)"></i><div><strong>${format(result.cachedTokens)} tokens / sequence</strong><small>${state.lab.stage === 'budget' ? 'Prompt + reserved output allowance' : 'Prompt only; generation still needs room'}</small></div></div></div></div><p class="memory-note">${state.lab.stage === 'prefill' ? 'This snapshot does not reserve any room for new output. A full prompt cache can still fail as generation continues.' : 'Conservative logical budget: reserve all output-token slots up front. Actual cache occupancy depends on the stopping point and allocator.'}</p>`;
+        }
+        function memoryScene() {
+          return `${dialogue('Dev', 'Serving engineer', 'One set of weights. Separate working state for each conversation. Keep the documents intact, and find room for the output too.')}<div class="row spread wrap"><h2 class="question" style="margin:0">The 24 GiB experiment</h2><button class="text-btn" data-action="sources">${icon('info')}Model assumptions</button></div><div class="lab"><div class="lab-controls"><div class="field"><label for="concurrent">Active sequences <output id="concurrent-value">${state.lab.concurrent}</output></label><input id="concurrent" type="range" min="1" max="12" step="1" value="${state.lab.concurrent}"/><small>In-flight sequences, not total signed-in users</small></div><div class="field"><label for="prompt">Input tokens <output id="prompt-value">${format(state.lab.prompt)}</output></label><input id="prompt" type="range" min="1024" max="16384" step="1024" value="${state.lab.prompt}"/><small>Per sequence; full attention in this example</small></div><div class="field"><label for="output">Output allowance <output id="output-value">${format(state.lab.output)}</output></label><input id="output" type="range" min="256" max="4096" step="256" value="${state.lab.output}"/><small>Reserved only in the generation-budget view</small></div><div class="eyebrow">Memory boundary</div><div class="segments" role="group" aria-label="Memory boundary"><button data-boundary="prefill" aria-pressed="${state.lab.stage === 'prefill'}">After prefill</button><button data-boundary="budget" aria-pressed="${state.lab.stage === 'budget'}">Generation budget</button></div><button class="btn" data-action="snapshot">${icon('save')}Keep this result</button><button class="text-btn" data-action="lab-reset" style="margin-top:14px">${icon('reset')}Launch workload</button></div><div class="lab-results" id="memory-results">${memoryReadout()}</div></div><div class="snapshots"><div class="row spread"><h3>Experiment notebook</h3><span class="tiny muted">${state.snapshots.length} / 4 retained</span></div><div class="snapshot-list">${state.snapshots.length ? state.snapshots.map((snapshot, index) => `<div class="snapshot"><div><strong>${index + 1}. ${snapshot.config.concurrent} active &middot; ${fixed(snapshot.result.totalGiB)} GiB</strong><p class="muted">${format(snapshot.config.prompt)} input + ${format(snapshot.config.output)} output allowance &middot; ${snapshot.config.stage === 'budget' ? 'generation budget' : 'prefill only'}</p></div><button class="icon-btn" data-restore="${index}" title="Restore experiment ${index + 1}" aria-label="Restore experiment ${index + 1}">${icon('reset')}</button></div>`).join('') : '<p class="tiny muted">No saved experiment yet.</p>'}</div></div>`;
+        }
+        function decisionScene() {
+          const choice = state.choice ? lesson.decision(state.choice) : null;
+          return `${dialogue('Mira', 'Product engineer', "All eight people need their full documents. We can make some requests wait. We cannot buy hardware for this launch. What's the admission policy?")}<div class="brief"><div><strong>8</strong><small>requests arriving together</small></div><div><strong>8,192</strong><small>input tokens each</small></div><div><strong>2,048</strong><small>output-token allowance</small></div><div><strong>24 GiB</strong><small>one GPU, same model</small></div></div><div class="choices decisions">${lesson.decisions.map((item, index) => `<button class="choice" data-choice="${item.id}" aria-pressed="${state.choice === item.id}"><span class="choice-marker">${index + 1}</span><strong>${item.title}</strong><small>${item.note}</small></button>`).join('')}</div>${choice ? `<div class="feedback ${choice.success ? 'good' : ''}" role="status"><strong>${choice.success ? 'A policy that fits the stated budget.' : 'There is a trade-off to account for.'}</strong>${choice.feedback}${choice.success ? `<div class="queue-strip" aria-label="Six requests active on the GPU, two waiting outside the active batch">${Array.from({ length: 8 }, (_, index) => `<span class="person-slot ${index >= 6 ? 'waiting' : ''}">${icon('user')}</span>`).join('')}</div><span class="tiny">6 active / 2 waiting. Queue time and real runtime headroom still need validation.</span>` : ''}</div>` : ''}`;
+        }
+        function transferScene() {
+          return `${dialogue('Mira', 'Product engineer', "Today's documents are shorter. Can we admit more requests without changing the model? I need your reasoning, not yesterday's number.")}<div class="transfer-layout"><div class="review-notes"><h3>New workload, same GPU</h3>${[
+            ['GPU memory', '24 GiB'],
+            ['Shared weights', '14 GiB'],
+            ['Assumed runtime', '2 GiB'],
+            ['Input per sequence', '4,096 tokens'],
+            ['Output allowance', '2,048 tokens'],
+            ['KV storage per token', '128 KiB'],
+          ]
+            .map(
+              ([label, value]) =>
+                `<div class="review-line"><span>${label}</span><strong class="mono">${value}</strong></div>`,
+            )
+            .join(
+              '',
+            )}<p class="tiny muted" style="margin-top:15px">Maximum simultaneous sequences within this logical budget. Not an SLO or throughput prediction.</p></div><form id="transfer-form" class="answer-form"><label for="transfer-count">How many active sequences fit?</label><input id="transfer-count" type="number" min="1" max="16" step="1" required value="${state.count}"/><label for="transfer-reason">What happens to the model weights?</label><select id="transfer-reason" required><option value="">Choose your explanation</option><option value="same" ${state.reason === 'same' ? 'selected' : ''}>Still 14 GiB, shared by this replica</option><option value="shrinks" ${state.reason === 'shrinks' ? 'selected' : ''}>They shrink with the shorter documents</option><option value="peruser" ${state.reason === 'peruser' ? 'selected' : ''}>Another copy is needed for every user</option></select><button class="btn primary" type="submit">Check my reasoning${icon('arrow')}</button></form></div>${state.transfer ? `<div class="feedback ${state.transfer.passed ? 'good' : ''}" role="status"><strong>${state.transfer.passed ? 'You carried the idea to a new workload.' : 'Revisit the budget, then try again.'}</strong>${state.transfer.feedback}</div>` : ''}`;
+        }
+        function debrief() {
+          return `<div class="complete-mark">${icon('check')}</div>${dialogue('Dev', 'Serving engineer', 'The deployment question changed. Not just: does the model fit? Also: how much working state can this workload keep active?')}<div class="takeaways"><div class="takeaway">${icon('layers')}<h3>Prefill builds the context.</h3><p>Process the prompt and populate its per-layer KV state. The final prompt position predicts the first output token.</p></div><div class="takeaway">${icon('reset')}<h3>Decode reuses past work.</h3><p>Feed the preceding output token back in. Reuse past keys and values while still computing attention over them.</p></div><div class="takeaway">${icon('chip')}<h3>Concurrency has a memory cost.</h3><p>Weights are shared within a replica. Longer active sequences require more KV storage in our full-attention model.</p></div></div><div class="feedback good"><strong>Your launch decision</strong>Six active requests budget 23.5 GiB; two wait. With shorter inputs, ten fit the same stated budget. Neither number guarantees acceptable latency on a real server.</div><div class="row spread wrap" style="margin-top:25px"><span class="tiny muted">Transfer check completed after ${state.transferAttempts} ${state.transferAttempts === 1 ? 'submission' : 'submissions'}. Completion is not a mastery assessment.</span><button class="text-btn" data-action="sources">${icon('book')}Sources &amp; assumptions</button></div><p class="tiny muted" style="margin-top:20px">The next production step: benchmark the real model and serving engine under the expected traffic, with allocator overhead, cache policy, and latency targets included.</p>`;
+        }
+        function canContinue() {
+          return [
+            Boolean(state.prediction),
+            state.traceSeen,
+            state.snapshots.length > 0,
+            state.decisionPassed,
+            Boolean(state.transfer?.passed),
+            true,
+          ][state.step];
+        }
+        function footer() {
+          const hints = [
+            'Choose a lead to investigate.',
+            'Follow the request through its final decode step.',
+            'Keep at least one experiment in your notebook.',
+            'Choose a policy that meets the launch constraints.',
+            'Check the capacity and explain the shared weights.',
+            'Return to the lab to keep experimenting.',
+          ];
+          const labels = [
+            'Follow a request',
+            'Open memory lab',
+            'Make the launch decision',
+            'Try a new workload',
+            'Finish chapter',
+            'Back to memory lab',
+          ];
+          return `<footer class="footer"><span class="footer-hint">${canContinue() && state.step < 5 ? 'Ready for the next scene.' : hints[state.step]}</span><div class="row"><button class="icon-btn" data-action="back" aria-label="Previous scene" title="Previous scene" ${state.step === 0 ? 'disabled' : ''}>${icon('back')}</button><button class="icon-btn mobile-restart" data-action="restart" aria-label="Restart chapter" title="Restart chapter">${icon('reset')}</button><button class="btn primary" data-action="continue" ${canContinue() ? '' : 'disabled'}>${labels[state.step]}${icon('arrow')}</button></div></footer>`;
+        }
+        function stopTimer() {
+          if (timer !== null) clearInterval(timer);
+          timer = null;
+        }
+        function render(focus, navigate = false) {
+          app.innerHTML = shell();
+          if (
+            state.step === 0 &&
+            window.matchMedia('(max-width: 560px)').matches
+          ) {
+            app
+              .querySelector('.scene-art svg')
+              .setAttribute('viewBox', '448 15 403 235');
+          }
+          if (state.step === 1) {
+            app
+              .querySelector('.cache-row')
+              .insertAdjacentHTML(
+                'afterend',
+                '<details class="attention-detail"><summary>What is actually inside the KV cache?</summary><p><strong>K = keys, V = values.</strong> These are vectors of numbers computed from the token representations at each attention layer. They are not copies of the model or saved answer text.</p><p>The current position produces a query vector. Comparing it with the available keys produces attention scores. After normalization, those scores weight the corresponding values. The result helps form the next representation.</p><p>Earlier positions cannot attend to future tokens in this causal model, so their keys and values can be reused. The new position still needs attention calculations: cached does not mean free.</p><p>Each green token tile above represents the stored K/V state for that position across layers, not a literal word stored on the GPU.</p></details>',
+              );
+          }
+          if (focus) app.querySelector(focus)?.focus({ preventScroll: true });
+          if (navigate) {
+            app.querySelector('#main').focus({ preventScroll: true });
+            window.scrollTo(0, 0);
+          }
+        }
+        function go(index) {
+          stopTimer();
+          state.step = index;
+          render(null, true);
+          announce(`Scene ${index + 1}: ${lesson.chapters[index].title}`);
+        }
+        function showDialog(kind) {
+          stopTimer();
+          if (state.step === 1) {
+            const opener = document.activeElement;
+            const selector = opener?.classList.contains('mobile-restart')
+              ? '.mobile-restart'
+              : opener?.dataset.action
+                ? `[data-action="${opener.dataset.action}"]:not(.mobile-restart)`
+                : null;
+            render(selector);
+          }
+          dialogOpener = document.activeElement;
+          document.getElementById('detail-title').textContent =
+            kind === 'restart'
+              ? 'Start this chapter again?'
+              : 'Sources & model limits';
+          document.getElementById('detail-body').innerHTML =
+            kind === 'restart'
+              ? '<p>Your choices and experiment notebook will be cleared.</p><div class="row" style="margin-top:22px"><button class="btn primary" data-action="confirm-restart">Restart chapter</button><button class="btn" data-action="close">Keep my progress</button></div>'
+              : `<p>Original fictional story. No inference server, GPU telemetry, AI calls, or measured latency. Technical references checked 7 September 2026; this prototype has not had an independent technical review.</p>${lesson.sources.map((source) => `<article class="source"><a href="${source.url}" target="_blank" rel="noopener noreferrer">${source.name}</a><p>${source.supports}</p></article>`).join('')}<h3 style="margin-top:22px">Calculated, not benchmarked</h3><div class="formula">KV bytes/token = 2 (K and V) &times; 32 layers &times; 8 KV heads &times; 128 dimensions &times; 2 bytes<br>= 131,072 bytes = 128 KiB<br>Budget = 14 GiB weights + 2 GiB assumed runtime + active sequences &times; cached-token budget &times; 128 KiB</div><ul><li>This is an illustrative full-attention, grouped-query configuration, not a named commercial model. All layers use the same dimensions. GiB = 1,073,741,824 bytes.</li><li>The generation budget reserves prompt + maximum output slots. The final sampled token may not be fed back; this intentionally conservative budget is not a claim about exact final occupancy.</li><li>Runtime overhead is fixed at 2 GiB for the exercise. Real buffers, activations, allocator waste, preallocation, kernel choices and memory reservations vary.</li><li>No prefix sharing, sliding-window cache, offloading, quantized cache, beam search, or multi-GPU sharding is modeled. Those can change the result.</li><li>The trace counts processed input positions, not arithmetic operations, time, or dollar cost. Disabling caching does not validate a real no-cache deployment's memory footprint.</li><li>The admission decision establishes a logical memory fit only. Queueing changes latency; production headroom and throughput require measurement.</li><li>Progress is held in this page only. No analytics or account. Sources open externally when selected.</li></ul>`;
+          details.showModal();
+        }
+        function closeDialog() {
+          details.close();
+          dialogOpener?.focus({ preventScroll: true });
+        }
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (!button || button.disabled) return;
+          const data = button.dataset;
+          if (
+            data.scene !== undefined &&
+            Number(data.scene) <= state.unlocked
+          ) {
+            go(Number(data.scene));
+            return;
+          }
+          if (data.prediction) {
+            state.prediction = data.prediction;
+            render(`[data-prediction="${data.prediction}"]`);
+            return;
+          }
+          if (data.trace !== undefined) {
+            stopTimer();
+            state.traceStep = Number(data.trace);
+            state.traceSeen ||= state.traceStep === 3;
+            render(`[data-trace="${data.trace}"]`);
+            return;
+          }
+          if (data.boundary) {
+            state.lab.stage = data.boundary;
+            render(`[data-boundary="${data.boundary}"]`);
+            return;
+          }
+          if (data.restore !== undefined) {
+            state.lab = { ...state.snapshots[Number(data.restore)].config };
+            render(`[data-restore="${data.restore}"]`);
+            announce('Experiment restored.');
+            return;
+          }
+          if (data.choice) {
+            state.choice = data.choice;
+            state.decisionPassed = lesson.decision(data.choice).success;
+            render(`[data-choice="${data.choice}"]`);
+            return;
+          }
+          switch (data.action) {
+            case 'continue':
+              if (canContinue()) {
+                const next = state.step === 5 ? 2 : state.step + 1;
+                state.unlocked = Math.max(state.unlocked, next);
+                go(next);
+              }
+              break;
+            case 'back':
+              if (state.step > 0) go(state.step - 1);
+              break;
+            case 'trace-next':
+              stopTimer();
+              state.traceStep = Math.min(3, state.traceStep + 1);
+              state.traceSeen ||= state.traceStep === 3;
+              render(
+                state.traceStep === 3
+                  ? '[data-action="continue"]'
+                  : '[data-action="trace-next"]',
+              );
+              break;
+            case 'trace-reset':
+              stopTimer();
+              state.traceStep = 0;
+              render('[data-action="trace-reset"]');
+              break;
+            case 'trace-play':
+              if (timer) {
+                stopTimer();
+                render('[data-action="trace-play"]');
+                break;
+              }
+              if (state.traceStep === 3) state.traceStep = 0;
+              timer = setInterval(() => {
+                state.traceStep++;
+                state.traceSeen ||= state.traceStep === 3;
+                if (state.traceStep === 3) stopTimer();
+                const focused = document.activeElement?.dataset.action;
+                render(focused ? `[data-action="${focused}"]` : null);
+                if (state.traceStep === 3)
+                  announce(
+                    'Request complete. Three output tokens sampled; five input positions processed with caching, twelve without.',
+                  );
+              }, 1500);
+              render('[data-action="trace-play"]');
+              break;
+            case 'snapshot': {
+              state.snapshots.push({
+                config: { ...state.lab },
+                result: lesson.estimate(state.lab),
+              });
+              if (state.snapshots.length > 4) state.snapshots.shift();
+              render('[data-action="snapshot"]');
+              announce('Experiment saved to your notebook.');
+              break;
+            }
+            case 'lab-reset':
+              state.lab = {
+                concurrent: 8,
+                prompt: 8192,
+                output: 2048,
+                stage: 'budget',
+              };
+              render('[data-action="lab-reset"]');
+              break;
+            case 'sources':
+              showDialog('sources');
+              break;
+            case 'restart':
+              showDialog('restart');
+              break;
+            case 'confirm-restart':
+              stopTimer();
+              details.close();
+              state = initial();
+              render(null, true);
+              announce('Chapter restarted.');
+              break;
+            case 'close':
+              closeDialog();
+              break;
+            case 'theme':
+              stopTimer();
+              document.documentElement.dataset.theme =
+                document.documentElement.dataset.theme === 'dark'
+                  ? 'light'
+                  : 'dark';
+              render('[data-action="theme"]');
+              break;
+          }
+        });
+        app.addEventListener('input', (event) => {
+          const target = event.target;
+          if (['concurrent', 'prompt', 'output'].includes(target.id)) {
+            state.lab[target.id] = Number(target.value);
+            document.getElementById(`${target.id}-value`).textContent = format(
+              Number(target.value),
+            );
+            document.getElementById('memory-results').innerHTML =
+              memoryReadout();
+          }
+          if (target.id === 'transfer-count') {
+            state.count = target.value;
+            clearTransfer();
+          }
+          if (target.id === 'transfer-reason') {
+            state.reason = target.value;
+            clearTransfer();
+          }
+        });
+        function clearTransfer() {
+          state.transfer = null;
+          app.querySelector('.stage > .feedback')?.remove();
+          app.querySelector('[data-action="continue"]').disabled = true;
+          app.querySelector('.footer-hint').textContent =
+            'Check the capacity and explain the shared weights.';
+        }
+        app.addEventListener('change', (event) => {
+          if (event.target.id === 'use-cache') {
+            stopTimer();
+            state.useCache = event.target.checked;
+            render('#use-cache');
+          }
+          if (['concurrent', 'prompt', 'output'].includes(event.target.id))
+            announce(
+              `Memory budget ${fixed(lesson.estimate(state.lab).totalGiB)} of 24 GiB.`,
+            );
+        });
+        app.addEventListener('submit', (event) => {
+          if (event.target.id !== 'transfer-form') return;
+          event.preventDefault();
+          const count = Number(state.count);
+          if (
+            !Number.isInteger(count) ||
+            count < 1 ||
+            count > 16 ||
+            !state.reason
+          )
+            return;
+          state.transfer = lesson.assessTransfer(count, state.reason);
+          state.transferAttempts++;
+          render('#transfer-count');
+          announce(state.transfer.feedback);
+        });
+        details.addEventListener('cancel', () => {
+          dialogOpener?.focus({ preventScroll: true });
+        });
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden && timer) {
+            stopTimer();
+            render();
+          }
+        });
+        window
+          .matchMedia('(max-width: 560px)')
+          .addEventListener('change', (event) => {
+            app
+              .querySelector('.scene-art svg')
+              ?.setAttribute(
+                'viewBox',
+                event.matches ? '448 15 403 235' : '0 0 900 250',
+              );
+          });
+        render();
+      })();
+    </script>
+  </body>
+</html>

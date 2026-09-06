@@ -1,0 +1,28 @@
+name: Chapter feedback
+description: Suggest a correction or improvement to an Under the Model chapter.
+title: '[Chapter 01] '
+body:
+  - type: input
+    id: chapter
+    attributes:
+      label: Chapter or scene
+      value: 'The launch-day mystery / '
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: What needs correction or improvement?
+      description: Include the claim, calculation, explanation, or interaction you are reviewing.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or proposed change
+      description: References, counterexamples, reproductions, and alternative explanations are welcome.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Browser and device
+      description: For interaction or layout issues only. Do not include private data or credentials.

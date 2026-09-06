@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:site": "node scripts/build-site.mjs",
+    "test:site": "node --test site/migration.checks.cjs site/build.checks.cjs site/chapters/the-launch-day-mystery/lesson.checks.cjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --fix",
